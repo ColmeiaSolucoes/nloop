@@ -1,10 +1,6 @@
 ---
-name: nloop-poll
-description: >
-  Poll YouTrack for new tickets and process them according to trigger rules.
-  Designed to be called periodically via /loop (e.g., /loop 30m /nloop-poll).
-  Can also be invoked manually with /nloop-poll.
-user-invocable: true
+description: "Poll YouTrack for new tickets and process them according to trigger rules. Use with /loop for periodic polling."
+argument-hint: ""
 ---
 
 # NLoop Poller — Check YouTrack for New Tickets
@@ -33,7 +29,7 @@ If polling is disabled, display "Polling is disabled in nloop.yaml" and stop.
 2. For each ticket returned, check if it's already being processed:
    - Check if `.nloop/features/{ticket_id}/` directory exists
    - If yes: skip (already in pipeline)
-   - If no: this is a new ticket → process it
+   - If no: this is a new ticket -> process it
 
 If no new tickets found, display:
 ```
@@ -84,7 +80,7 @@ for each rule in triggers.rules:
      Priority: {priority}
      Tags: {tags}
      Rule matched: {rule.name}
-     → Run /nloop-start {ticket_id} to begin
+     -> Run /nloop-start {ticket_id} to begin
    ```
 2. Do NOT create any files — wait for manual start
 
@@ -106,12 +102,12 @@ After processing all tickets, display:
 
 ## Error Handling
 
-- **YouTrack MCP not available**: Display "YouTrack MCP is not configured. Add it to your Claude Code MCP settings." and stop.
+- **YouTrack MCP not available**: Display "YouTrack MCP is not configured. Run /nloop-init --with-youtrack to set it up." and stop.
 - **YouTrack API error**: Display the error, don't crash. Will retry on next poll interval.
 - **Invalid trigger rules**: Display warning about the invalid rule, use default action (require_approval).
 
 ## Notes
 
-- This skill is designed to be **non-interactive** when called via `/loop`. It should not ask user questions.
+- This command is designed to be **non-interactive** when called via `/loop`. It should not ask user questions.
 - For auto-started features, the orchestration runs automatically. If it needs human input (escalation), it will pause and wait for `/nloop-resume`.
 - The polling interval is configured in `nloop.yaml` and used with the `/loop` skill.

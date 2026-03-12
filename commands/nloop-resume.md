@@ -1,10 +1,6 @@
 ---
-name: nloop-resume
-description: >
-  Resume a paused, escalated, or crashed NLoop feature pipeline. Reads the existing
-  state.json and continues orchestration from the last saved node.
-  Invoke with /nloop-resume TICKET-ID.
-user-invocable: true
+description: "Resume a paused, escalated, or crashed NLoop feature pipeline from its last saved state."
+argument-hint: "TICKET-ID"
 ---
 
 # NLoop Orchestrator — Resume Feature
@@ -19,6 +15,8 @@ Resume a feature pipeline from its last saved state. Use this after:
 ```
 /nloop-resume TICKET-ID
 ```
+
+Arguments: $ARGUMENTS
 
 ## Step 1: Validate State
 
@@ -66,9 +64,9 @@ If `state.status == "escalated"`:
 ## Step 4: Terminal State Handling
 
 Same as `/nloop-start` Step 4:
-- `done` → mark completed, display PR URL
-- `escalate` → mark escalated, display reason
-- `failed` → mark failed, display details
+- `done` -> mark completed, display PR URL
+- `escalate` -> mark escalated, display reason
+- `failed` -> mark failed, display details
 
 ## Edge Cases
 

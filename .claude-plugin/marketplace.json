@@ -1,0 +1,16 @@
+{
+  "name": "nloop",
+  "version": "1.0.0",
+  "description": "NLoop — Multi-agent orchestration system for the full software development lifecycle. Automates planning, architecture, implementation, code review, testing, and PR creation with 8 specialized AI agents.",
+  "owner": {
+    "name": "Colmeia Solucoes",
+    "email": "dev@colmeia.com.br"
+  },
+  "plugins": [
+    {
+      "name": "nloop",
+      "source": "./",
+      "description": "Multi-agent orchestration system for the full software development lifecycle"
+    }
+  ]
+}

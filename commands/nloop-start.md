@@ -1,10 +1,6 @@
 ---
-name: nloop-start
-description: >
-  Start a new feature in the NLoop multi-agent pipeline. Invoke with /nloop-start TICKET-ID
-  or /nloop-start TICKET-ID "Ticket title and description". Orchestrates the full development
-  lifecycle: brainstorm → plan → review → spec → review → tasks → implement → test → PR.
-user-invocable: true
+description: "Start a new feature in the NLoop multi-agent pipeline. Orchestrates the full development lifecycle: brainstorm, plan, review, spec, review, tasks, implement, test, PR."
+argument-hint: "TICKET-ID [\"Ticket title and description\"]"
 ---
 
 # NLoop Orchestrator — Start Feature
@@ -20,9 +16,9 @@ You are the **NLoop Orchestrator**, the central engine that drives the multi-age
 
 ## Step 1: Initialize Feature
 
-1. Parse the TICKET-ID from the command arguments
+1. Parse the TICKET-ID from: $ARGUMENTS
 2. Check if `.nloop/features/{TICKET-ID}/` already exists:
-   - If yes: ask user if they want to resume (→ use /nloop-resume) or restart
+   - If yes: ask user if they want to resume (suggest /nloop-resume) or restart
    - If no: proceed with initialization
 3. Create the feature directory structure:
    ```
@@ -49,7 +45,7 @@ You are the **NLoop Orchestrator**, the central engine that drives the multi-age
 
 1. Read the workflow YAML from `.nloop/workflows/default.yaml` (or the workflow specified in state)
 2. Parse the YAML to understand:
-   - `nodes`: map of node_name → { agent, action, description, produces, consumes, target, max_rounds, parallel }
+   - `nodes`: map of node_name -> { agent, action, description, produces, consumes, target, max_rounds, parallel }
    - `edges`: list of { from, to, condition }
    - `defaults`: { max_review_rounds, timeout }
 3. Validate that the `current_node` from state exists in the workflow
@@ -132,11 +128,11 @@ When `node.parallel == true` and `node.action == "dispatch-tasks"`:
    - **Result** (for test nodes): look for `### Result: PASSED` or `### Result: FAILED`
    - **Status** (for other nodes): `COMPLETED` by default if no errors
 2. Determine the `condition` from the output:
-   - `approved` → if Decision is APPROVED
-   - `rejected` → if Decision is REJECTED
-   - `passed` → if Result is PASSED
-   - `failed` → if Result is FAILED
-   - `null` → unconditional (no decision/result in output)
+   - `approved` -> if Decision is APPROVED
+   - `rejected` -> if Decision is REJECTED
+   - `passed` -> if Result is PASSED
+   - `failed` -> if Result is FAILED
+   - `null` -> unconditional (no decision/result in output)
 
 ### 3.6: Handle Review Rounds
 
@@ -153,10 +149,10 @@ If the current node is a review node (has `target` field):
 1. Find all edges where `edge.from == state.current_node`
 2. If condition is not null:
    - Find the edge where `edge.condition == condition`
-   - If no matching conditional edge found → error
+   - If no matching conditional edge found -> error
 3. If condition is null:
    - Find the edge where `edge.condition` is not set (unconditional)
-   - If no unconditional edge found → error
+   - If no unconditional edge found -> error
 4. Set `state.current_node = edge.to`
 
 ### Review Loop Deep Dive
@@ -166,8 +162,8 @@ The review loop is the most critical mechanism in NLoop. Here's exactly how it w
 **When a review node (e.g., `review-plan`) rejects:**
 1. The orchestrator increments `state.review_rounds.plan` (e.g., from 1 to 2)
 2. It checks: `review_rounds.plan >= node.max_rounds` (default 4)?
-   - If YES: set condition to `max_rounds_exceeded` → edge goes to `escalate`
-   - If NO: condition stays `rejected` → edge goes back to `plan` node
+   - If YES: set condition to `max_rounds_exceeded` -> edge goes to `escalate`
+   - If NO: condition stays `rejected` -> edge goes back to `plan` node
 3. The review artifact is saved to `reviews/plan-review-{round}.md`
 4. When the `plan` node executes again, the orchestrator MUST include in the prompt:
    - The previous review feedback from `reviews/plan-review-{round}.md`
@@ -177,7 +173,7 @@ The review loop is the most critical mechanism in NLoop. Here's exactly how it w
 
 **When a review node approves:**
 1. The round counter is NOT incremented
-2. Condition is `approved` → edge goes to the next phase
+2. Condition is `approved` -> edge goes to the next phase
 3. The review artifact is saved (for audit trail)
 
 **Escalation:**
@@ -225,7 +221,7 @@ Append to `.nloop/features/{TICKET_ID}/logs/events.jsonl`:
 
 After each node completion, display:
 ```
-[NLoop] {TICKET_ID} | {previous_node} → {condition or "→"} → {new_node} | Review rounds: {rounds if applicable}
+[NLoop] {TICKET_ID} | {previous_node} -> {condition or "->"} -> {new_node} | Review rounds: {rounds if applicable}
 ```
 
 ### 3.11: Continue Loop
@@ -240,7 +236,7 @@ Go back to Step 3.1 with the new `current_node`.
 3. Log event: `workflow_completed`
 4. Display:
    ```
-   ✓ NLoop: Feature {TICKET_ID} completed successfully!
+   NLoop: Feature {TICKET_ID} completed successfully!
    PR: {state.pr.url}
    Artifacts: .nloop/features/{TICKET_ID}/
    ```
@@ -250,7 +246,7 @@ Go back to Step 3.1 with the new `current_node`.
 2. Log event: `workflow_escalated`
 3. Display:
    ```
-   ⚠ NLoop: Feature {TICKET_ID} escalated — human intervention needed.
+   NLoop: Feature {TICKET_ID} escalated — human intervention needed.
    Reason: {state.escalation.reason}
    Node: {state.escalation.node}
    To resume after resolving: /nloop-resume {TICKET_ID}
@@ -302,8 +298,6 @@ After **each phase completion** (not every node, only when transitioning to a ne
 4. Check which artifacts exist and update the checklist
 5. Update review history and task progress sections
 6. Overwrite the summary.md file
-
-This gives humans a quick at-a-glance view of where a feature stands.
 
 ## Important Rules
 
