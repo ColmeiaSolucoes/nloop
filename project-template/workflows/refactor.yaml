@@ -1,22 +1,22 @@
-name: default
+name: refactor
 version: 1
-description: Standard development workflow for feature tickets
+description: Workflow for refactoring tasks — full planning but no visual QA testing
 
 defaults:
-  max_review_rounds: 4
+  max_review_rounds: 3
   timeout: 30m
 
 nodes:
   brainstorm:
     agent: tech-leader
     action: brainstorm
-    description: Triage and brainstorm the ticket
+    description: Analyze what needs refactoring and why
     produces: brainstorm.md
 
   plan:
     agent: product-planner
     action: create-plan
-    description: Create detailed product plan
+    description: Plan the refactoring approach and scope
     produces: plan.md
     consumes:
       - brainstorm.md
@@ -25,12 +25,12 @@ nodes:
     agent: tech-leader
     action: review
     target: plan.md
-    max_rounds: 4
+    max_rounds: 3
 
   architecture:
     agent: architect
     action: create-spec
-    description: Create technical specification
+    description: Define the refactoring spec — before/after structure
     produces: spec.md
     consumes:
       - plan.md
@@ -40,31 +40,21 @@ nodes:
     agent: tech-leader
     action: review
     target: spec.md
-    max_rounds: 4
-
-  brainstorm-refinement:
-    agent: tech-leader
-    action: brainstorm-refinement
-    description: Final brainstorm with plan and spec before task breakdown
-    produces: brainstorm-refined.md
-    consumes:
-      - plan.md
-      - spec.md
+    max_rounds: 3
 
   task-planning:
     agent: project-manager
     action: create-tasks
-    description: Break into EPICs and tasks with dependency graph
+    description: Break refactoring into safe incremental steps
     produces: tasks.md
     consumes:
       - plan.md
       - spec.md
-      - brainstorm-refined.md
 
   execute-tasks:
     agent: project-manager
     action: dispatch-tasks
-    description: Dispatch tasks to developer agents (parallel via worktrees)
+    description: Dispatch refactoring tasks (parallel where safe)
     parallel: true
     consumes:
       - tasks.md
@@ -73,51 +63,38 @@ nodes:
   code-review:
     agent: code-reviewer
     action: review-code
-    max_rounds: 4
+    max_rounds: 3
 
   unit-testing:
     agent: unit-tester
     action: run-tests
     produces: test-report-unit.md
 
-  qa-testing:
-    agent: qa-tester
-    action: visual-test
-    produces: test-report-qa.md
-    skip_if:
-      - tag: backend-only
-      - tag: no-ui
-      - no_ui_changes: true
-
   bug-fixing:
     agent: tech-leader
     action: dispatch-fixes
-    description: Distribute bug fixes from test results
+    description: Fix regressions from refactoring
     consumes:
       - test-report-unit.md
-      - test-report-qa.md
 
   create-pr:
     agent: tech-leader
     action: create-pr
-    description: Create PR on configured git platform
+    description: Create PR for the refactoring
 
   post-mortem:
     agent: tech-leader
     action: post-mortem
-    description: Generate metrics and lessons learned from this feature
+    description: Generate metrics and lessons learned
     produces: post-mortem.md
 
 edges:
-  # Brainstorm → Plan
   - from: brainstorm
     to: plan
 
-  # Plan → Review
   - from: plan
     to: review-plan
 
-  # Review Plan outcomes
   - from: review-plan
     to: plan
     condition: rejected
@@ -130,11 +107,9 @@ edges:
     to: architecture
     condition: approved
 
-  # Architecture → Review
   - from: architecture
     to: review-spec
 
-  # Review Spec outcomes
   - from: review-spec
     to: architecture
     condition: rejected
@@ -144,21 +119,16 @@ edges:
     condition: max_rounds_exceeded
 
   - from: review-spec
-    to: brainstorm-refinement
+    to: task-planning
     condition: approved
 
-  # Refinement → Task Planning → Execution
-  - from: brainstorm-refinement
-    to: task-planning
-
+  # Skip brainstorm-refinement for refactors (spec IS the refinement)
   - from: task-planning
     to: execute-tasks
 
-  # Execution → Code Review
   - from: execute-tasks
     to: code-review
 
-  # Code Review outcomes
   - from: code-review
     to: execute-tasks
     condition: rejected
@@ -167,29 +137,15 @@ edges:
     to: unit-testing
     condition: approved
 
-  # Unit Testing outcomes
+  # No QA testing for refactors — only unit tests
   - from: unit-testing
-    to: qa-testing
+    to: create-pr
     condition: passed
 
   - from: unit-testing
     to: bug-fixing
     condition: failed
 
-  # QA Testing outcomes
-  - from: qa-testing
-    to: create-pr
-    condition: passed
-
-  - from: qa-testing
-    to: create-pr
-    condition: skipped
-
-  - from: qa-testing
-    to: bug-fixing
-    condition: failed
-
-  # Bug fixing → back to Code Review
   - from: bug-fixing
     to: code-review
 
@@ -199,8 +155,3 @@ edges:
 
   - from: post-mortem
     to: done
-
-# Special built-in nodes (no agent definition needed):
-#   done      — terminal success state, feature is complete
-#   escalate  — pauses pipeline and notifies human for intervention
-#   failed    — terminal failure state

@@ -3,14 +3,19 @@
   "ticket_title": "{{TICKET_TITLE}}",
   "ticket_url": null,
   "ticket_description": null,
+  "ticket_tags": [],
+  "ticket_type": null,
+  "ticket_priority": null,
   "feature_dir": "features/{{TICKET_ID}}",
-  "workflow": "default",
+  "workflow": "{{WORKFLOW}}",
+  "workflow_matched_rule": null,
   "current_node": "brainstorm",
   "status": "in_progress",
   "trigger": "manual",
   "started_at": "{{TIMESTAMP}}",
   "updated_at": "{{TIMESTAMP}}",
   "completed_at": null,
+  "skipped_nodes": [],
   "review_rounds": {
     "plan": 0,
     "spec": 0,
@@ -23,9 +28,16 @@
     "failed": 0,
     "items": []
   },
+  "metrics": {
+    "phases": {},
+    "bugs_found": 0,
+    "bugs_fixed": 0,
+    "first_pass_code_review": null
+  },
   "pr": {
     "url": null,
     "branch": null,
+    "platform": null,
     "status": null
   },
   "escalation": {

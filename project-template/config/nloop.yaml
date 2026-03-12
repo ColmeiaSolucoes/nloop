@@ -1,7 +1,32 @@
-version: 1
+version: 2
 
 # Default workflow to use for new features
 default_workflow: default
+
+# Workflow mapping — select workflow based on ticket type/tags
+# First match wins. If no match, uses default_workflow.
+workflow_mapping:
+  - match:
+      tags: [hotfix, critical-fix]
+    workflow: hotfix
+
+  - match:
+      tags: [bugfix, bug]
+    workflow: bugfix
+
+  - match:
+      tags: [refactor, tech-debt, cleanup]
+    workflow: refactor
+
+  # Uncomment to match by ticket type (YouTrack field)
+  # - match:
+  #     type: [Bug]
+  #   workflow: bugfix
+  #
+  # - match:
+  #     type: [Task]
+  #     tags: [refactor]
+  #   workflow: refactor
 
 # Polling settings
 polling:
@@ -28,13 +53,47 @@ review:
 parallel:
   max_concurrent_agents: 3
 
-# Bitbucket
+# ─── Git Platform ────────────────────────────────────────────
+# Supported: github | bitbucket
+# Only configure the platform you use.
+
+git_platform: github  # github | bitbucket
+
+# GitHub (used when git_platform: github)
+github:
+  # Uses `gh` CLI — must be authenticated: `gh auth login`
+  default_reviewers: []
+  branch_prefix: "feature/"
+  base_branch: "main"
+  draft: false          # Create as draft PR
+  labels: []            # Labels to add to PR (e.g., ["enhancement", "nloop"])
+
+# Bitbucket (used when git_platform: bitbucket)
 bitbucket:
   base_url: ""
   workspace: ""
   repo: ""
   default_reviewers: []
   branch_prefix: "feature/"
+
+# ─── Metrics ─────────────────────────────────────────────────
+metrics:
+  enabled: true
+  # Where to store aggregated metrics across features
+  history_file: ".nloop/metrics-history.jsonl"
+  # Auto-generate post-mortem at end of each feature
+  auto_post_mortem: true
+
+# ─── Skip Conditions ─────────────────────────────────────────
+# Global skip conditions applied to all workflows.
+# These supplement per-node skip_if in workflow YAML.
+skip_conditions:
+  # Skip QA visual testing for these tags
+  qa_testing:
+    skip_tags: [backend-only, no-ui, api-only, cli-only]
+  # Skip plan+spec for these tags (use bugfix workflow instead)
+  planning:
+    skip_tags: [bugfix, hotfix]
 
 # Feature directory
 features_dir: features

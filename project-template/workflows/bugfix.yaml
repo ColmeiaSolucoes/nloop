@@ -1,0 +1,121 @@
+name: bugfix
+version: 1
+description: Simplified workflow for bug fixes — skips planning and architecture phases
+
+defaults:
+  max_review_rounds: 2
+  timeout: 20m
+
+nodes:
+  brainstorm:
+    agent: tech-leader
+    action: brainstorm
+    description: Analyze the bug — root cause, affected area, fix strategy
+    produces: brainstorm.md
+
+  task-planning:
+    agent: project-manager
+    action: create-tasks
+    description: Create fix tasks (usually just 1-2 tasks)
+    produces: tasks.md
+    consumes:
+      - brainstorm.md
+
+  execute-tasks:
+    agent: project-manager
+    action: dispatch-tasks
+    description: Dispatch fix tasks to developer agents
+    parallel: true
+    consumes:
+      - tasks.md
+      - brainstorm.md
+
+  code-review:
+    agent: code-reviewer
+    action: review-code
+    max_rounds: 2
+
+  unit-testing:
+    agent: unit-tester
+    action: run-tests
+    produces: test-report-unit.md
+
+  qa-testing:
+    agent: qa-tester
+    action: visual-test
+    produces: test-report-qa.md
+    skip_if:
+      - tag: backend-only
+      - no_ui_changes: true
+
+  bug-fixing:
+    agent: tech-leader
+    action: dispatch-fixes
+    description: Fix any regressions found in testing
+    consumes:
+      - test-report-unit.md
+      - test-report-qa.md
+
+  create-pr:
+    agent: tech-leader
+    action: create-pr
+    description: Create PR for the bug fix
+
+  post-mortem:
+    agent: tech-leader
+    action: post-mortem
+    description: Generate metrics and lessons learned
+    produces: post-mortem.md
+
+edges:
+  # Brainstorm → directly to tasks (no plan/spec needed for bugfixes)
+  - from: brainstorm
+    to: task-planning
+
+  - from: task-planning
+    to: execute-tasks
+
+  - from: execute-tasks
+    to: code-review
+
+  # Code Review outcomes
+  - from: code-review
+    to: execute-tasks
+    condition: rejected
+
+  - from: code-review
+    to: unit-testing
+    condition: approved
+
+  # Unit Testing outcomes
+  - from: unit-testing
+    to: qa-testing
+    condition: passed
+
+  - from: unit-testing
+    to: bug-fixing
+    condition: failed
+
+  # QA Testing outcomes (or skipped → goes to create-pr)
+  - from: qa-testing
+    to: create-pr
+    condition: passed
+
+  - from: qa-testing
+    to: create-pr
+    condition: skipped
+
+  - from: qa-testing
+    to: bug-fixing
+    condition: failed
+
+  # Bug fixing → back to Code Review
+  - from: bug-fixing
+    to: code-review
+
+  # PR → Post-mortem → Done
+  - from: create-pr
+    to: post-mortem
+
+  - from: post-mortem
+    to: done

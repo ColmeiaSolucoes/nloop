@@ -1,8 +1,8 @@
 # NLoop — Multi-Agent Orchestration for Claude Code
 
-A multi-agent orchestration system that automates the full software development lifecycle — from ticket intake (YouTrack) through planning, architecture, implementation, code review, testing, and PR creation (Bitbucket).
+A multi-agent orchestration system that automates the full software development lifecycle — from ticket intake (YouTrack) through planning, architecture, implementation, code review, testing, and PR creation (GitHub/Bitbucket).
 
-NLoop models a virtual software team with 8 specialized agents that communicate through a declarative YAML state graph workflow with review loops, parallel execution via git worktrees, and human escalation.
+NLoop models a virtual software team with 8 specialized agents that communicate through a declarative YAML state graph workflow with review loops, parallel execution via git worktrees, smart skip conditions, and automatic post-mortem metrics.
 
 ## Installation
 
@@ -53,6 +53,9 @@ Then run `/nloop-init` in Claude Code.
 # Detailed view of a feature
 /nloop-status TICKET-ID
 
+# View metrics and trends
+/nloop-metrics
+
 # Poll YouTrack for new tickets
 /nloop-poll
 
@@ -66,14 +69,14 @@ NLoop orchestrates a pipeline of specialized AI agents through a state graph:
 
 ```
 Ticket → Brainstorm → Plan → Review → Architecture → Review → Refinement
-    → Task Planning → Parallel Implementation → Code Review → Tests → PR
+    → Task Planning → Parallel Implementation → Code Review → Tests → PR → Post-Mortem
 ```
 
 Each step is handled by a specialized agent:
 
 | Agent | Role | Model |
 |-------|------|-------|
-| **Tech Leader** | Orchestrates, reviews, escalates | opus |
+| **Tech Leader** | Orchestrates, reviews, escalates, post-mortem | opus |
 | **Product Planner** | Decomposes ideas, researches, creates plans | sonnet |
 | **Architect** | Technical specification and design | opus |
 | **Project Manager** | EPICs, tasks, dependency graphs | sonnet |
@@ -81,6 +84,49 @@ Each step is handled by a specialized agent:
 | **Code Reviewer** | Reviews code quality and security | sonnet |
 | **Unit Tester** | Runs/writes unit and integration tests | sonnet |
 | **QA Tester** | Visual/E2E testing via Chrome MCP | sonnet |
+
+### Workflow Selection by Ticket Type
+
+NLoop automatically selects the right workflow based on ticket tags:
+
+| Workflow | When | What it skips |
+|----------|------|---------------|
+| **default** | Features, new functionality | Nothing — full pipeline |
+| **bugfix** | Tags: `bugfix`, `bug` | Plan, Architecture, Spec review |
+| **hotfix** | Tags: `hotfix`, `critical-fix` | Plan, Spec, Task planning, QA |
+| **refactor** | Tags: `refactor`, `tech-debt` | QA visual testing, Brainstorm refinement |
+
+Configure mapping in `.nloop/config/nloop.yaml`:
+
+```yaml
+workflow_mapping:
+  - match:
+      tags: [hotfix, critical-fix]
+    workflow: hotfix
+  - match:
+      tags: [bugfix, bug]
+    workflow: bugfix
+  - match:
+      tags: [refactor, tech-debt]
+    workflow: refactor
+```
+
+### Skip Conditions
+
+Nodes can be automatically skipped based on ticket context:
+
+```yaml
+# In workflow YAML
+qa-testing:
+  agent: qa-tester
+  action: visual-test
+  skip_if:
+    - tag: backend-only    # Skip if ticket tagged backend-only
+    - tag: no-ui           # Skip if ticket tagged no-ui
+    - no_ui_changes: true  # Skip if no frontend files changed
+```
+
+When a node is skipped, NLoop logs it and moves to the next step automatically.
 
 ### Review Loops
 
@@ -90,9 +136,40 @@ The Tech Leader reviews plans and specs with up to 4 rounds of feedback. If an a
 
 The Project Manager breaks specs into task groups with dependency graphs. Independent tasks run in parallel using git worktrees — each developer agent works in its own isolated copy of the repo.
 
-### Workflow as Code
+### Metrics & Post-Mortem
 
-The entire pipeline is defined in `.nloop/workflows/default.yaml` — a declarative state graph with nodes (agents) and edges (transitions with conditions). You can customize the workflow, add new agents, or modify the review logic by editing YAML.
+Every completed feature generates a post-mortem with:
+- Duration per phase
+- Review round counts and rejection rates
+- Bug density (bugs found per task)
+- First-pass code review rate
+- Lessons learned and recommendations
+
+View aggregated metrics across all features:
+
+```bash
+/nloop-metrics                          # Overview dashboard
+/nloop-metrics TICKET-ID               # Single feature metrics
+/nloop-metrics --compare T-1 T-2       # Side-by-side comparison
+```
+
+### Git Platform Support
+
+NLoop supports both **GitHub** and **Bitbucket** for PR creation:
+
+```yaml
+# In nloop.yaml
+git_platform: github  # or bitbucket
+
+github:
+  default_reviewers: ["user1", "user2"]
+  branch_prefix: "feature/"
+  base_branch: "main"
+  draft: false
+  labels: ["enhancement"]
+```
+
+GitHub uses `gh` CLI (authenticate with `gh auth login`). Bitbucket uses the REST API with `BITBUCKET_TOKEN`.
 
 ## Project Structure
 
@@ -102,43 +179,43 @@ After running `/nloop-init`, your project gets:
 your-project/
 └── .nloop/
     ├── agents/           # Agent definitions (customizable .md files)
-    │   ├── tech-leader.md
-    │   ├── product-planner.md
-    │   ├── architect.md
-    │   ├── project-manager.md
-    │   ├── developer.md
-    │   ├── code-reviewer.md
-    │   ├── unit-tester.md
-    │   └── qa-tester.md
     ├── config/
-    │   ├── nloop.yaml    # Global settings (models, Bitbucket, polling)
+    │   ├── nloop.yaml    # Global settings (git platform, models, polling)
     │   └── triggers.yaml # Auto-start rules for tickets
     ├── workflows/
-    │   └── default.yaml  # The development pipeline (state graph)
+    │   ├── default.yaml  # Full feature pipeline
+    │   ├── bugfix.yaml   # Simplified bug fix pipeline
+    │   ├── hotfix.yaml   # Minimal critical fix pipeline
+    │   └── refactor.yaml # Refactoring pipeline (no QA)
     ├── engine/
     │   ├── state-schema.json
     │   └── templates/    # Templates for feature artifacts
-    └── features/         # Runtime data (one dir per ticket, gitignored)
+    └── features/         # Runtime data (gitignored)
 ```
 
 ## Configuration
 
-### Bitbucket Integration
+### Git Platform
 
 Edit `.nloop/config/nloop.yaml`:
 
 ```yaml
+# GitHub (recommended — uses gh CLI)
+git_platform: github
+github:
+  default_reviewers: ["teammate1", "teammate2"]
+  branch_prefix: "feature/"
+  base_branch: "main"
+  draft: false
+
+# OR Bitbucket (uses REST API)
+git_platform: bitbucket
 bitbucket:
   base_url: "https://bitbucket.org"
   workspace: "your-team"
   repo: "your-repo"
-  default_reviewers: ["username1", "username2"]
+  default_reviewers: ["username1"]
   branch_prefix: "feature/"
-```
-
-Set your token:
-```bash
-export BITBUCKET_TOKEN="your-app-password"
 ```
 
 ### YouTrack Integration
@@ -152,7 +229,7 @@ export YOUTRACK_BASE_URL="https://your-team.youtrack.cloud"
 
 ### Trigger Rules
 
-Edit `.nloop/config/triggers.yaml` to control how tickets are handled:
+Edit `.nloop/config/triggers.yaml` to control how polled tickets are handled:
 
 ```yaml
 rules:
@@ -173,15 +250,14 @@ rules:
 
 ### Customizing Agents
 
-Each agent is a `.md` file in `.nloop/agents/`. Edit the frontmatter to change the model, tools, or review rounds. Edit the body to change the agent's behavior and output format.
+Each agent is a `.md` file in `.nloop/agents/`. Edit the frontmatter to change the model, tools, or review rounds. Edit the body to change the agent's behavior, output format, and examples.
 
 ### Custom Workflows
 
-Edit `.nloop/workflows/default.yaml` to change the pipeline. You can:
-- Add or remove nodes (agents/actions)
-- Change edge conditions and flow
-- Adjust max review rounds per node
-- Add new terminal states
+Create new workflows in `.nloop/workflows/` or edit existing ones. Each workflow is a YAML state graph with:
+- **nodes**: agent + action + skip conditions
+- **edges**: transitions with conditions (approved, rejected, passed, failed, skipped)
+- **defaults**: max review rounds, timeouts
 
 ## Commands
 
@@ -191,12 +267,14 @@ Edit `.nloop/workflows/default.yaml` to change the pipeline. You can:
 | `/nloop-start TICKET-ID` | Start a feature pipeline |
 | `/nloop-resume TICKET-ID` | Resume a paused/escalated feature |
 | `/nloop-status [TICKET-ID]` | View dashboard or feature details |
+| `/nloop-metrics [TICKET-ID]` | View metrics and trends |
 | `/nloop-poll` | Poll YouTrack for new tickets |
 
 ## Requirements
 
 - **Claude Code** (latest version with plugin support)
 - **Git** (for worktree-based parallelism)
+- **gh CLI** (for GitHub PR creation — `gh auth login`)
 - **Node.js** (optional, for YouTrack MCP server)
 
 ## License

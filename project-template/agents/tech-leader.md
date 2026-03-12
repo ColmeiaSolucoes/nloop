@@ -26,6 +26,7 @@ actions:
   - brainstorm-refinement
   - dispatch-fixes
   - create-pr
+  - post-mortem
 
 max_review_rounds: 4
 timeout: 30m
@@ -48,6 +49,7 @@ produces:
   - brainstorm.md
   - brainstorm-refined.md
   - reviews/*.md
+  - post-mortem.md
 
 consumes:
   - plan.md
@@ -250,7 +252,7 @@ If there are more bugs than `max_concurrent_agents`, batch them.
 <instructions>
 When assigned the `create-pr` action:
 
-1. **Read config**: Load `.nloop/config/nloop.yaml` for Bitbucket settings (base_url, workspace, repo, default_reviewers, branch_prefix)
+1. **Read config**: Load `.nloop/config/nloop.yaml` to determine `git_platform` (github or bitbucket)
 2. **Prepare branch**:
    - Check if on a feature branch: `git branch --show-current`
    - If not, create one: `git checkout -b {branch_prefix}{TICKET_ID}`
@@ -261,11 +263,33 @@ When assigned the `create-pr` action:
    git push -u origin {branch_prefix}{TICKET_ID}
    ```
 4. **Build PR description** from feature artifacts:
-   - Read plan.md → extract Overview section for summary
-   - Read tasks.md → list completed tasks
-   - Read test-report-unit.md → summarize test results
-   - Read test-report-qa.md → summarize QA results
-5. **Create PR via Bitbucket API**:
+   - Read plan.md → extract Overview section for summary (if exists)
+   - Read brainstorm.md → use as summary if no plan (bugfix/hotfix workflows)
+   - Read tasks.md → list completed tasks (if exists)
+   - Read test-report-unit.md → summarize test results (if exists)
+   - Read test-report-qa.md → summarize QA results (if exists)
+   - Read post-mortem.md → include key metrics (if exists)
+
+5. **Create PR** based on `git_platform`:
+
+   ### If git_platform == "github":
+   Use the `gh` CLI (must be authenticated via `gh auth login`):
+   ```bash
+   gh pr create \
+     --title "{TICKET_ID}: {ticket_title}" \
+     --body "{pr_description}" \
+     --base "{github.base_branch}" \
+     --reviewer "{github.default_reviewers}" \
+     --label "{github.labels}" \
+     {--draft if github.draft == true}
+   ```
+   Then get the PR URL:
+   ```bash
+   gh pr view --json url -q '.url'
+   ```
+
+   ### If git_platform == "bitbucket":
+   Use the Bitbucket REST API:
    ```bash
    curl -X POST \
      "https://api.bitbucket.org/2.0/repositories/{workspace}/{repo}/pullrequests" \
@@ -280,6 +304,7 @@ When assigned the `create-pr` action:
        "close_source_branch": true
      }'
    ```
+
 6. **Update state**: Write the PR URL and branch to `state.json`
 7. **Comment on YouTrack** (if MCP available): Add a comment to the ticket with the PR link
 </instructions>
@@ -289,25 +314,126 @@ When assigned the `create-pr` action:
 
 ### Details
 - **Ticket**: {TICKET_ID}
+- **Platform**: {github|bitbucket}
 - **Branch**: {branch_prefix}{TICKET_ID}
 - **PR URL**: {url}
-- **Destination**: main
+- **Destination**: {base_branch}
 - **Reviewers**: {list}
 - **Status**: Open
 
 ### PR Description
 ## Summary
-{Overview from plan.md}
+{Overview from plan.md or brainstorm.md}
 
 ## Changes
 {List of completed tasks from tasks.md}
 
 ## Test Results
 - Unit tests: {PASSED/FAILED} ({n}/{total})
-- QA tests: {PASSED/FAILED} ({n scenarios})
+- QA tests: {PASSED/FAILED or SKIPPED} ({n scenarios})
+
+## Metrics
+- Total phases: {n}
+- Review rounds: plan {n}, spec {n}, code {n}
+- Bugs found/fixed: {n}
 
 ## Ticket
 {ticket_url}
+</output_format>
+
+---
+
+## Action: post-mortem
+
+<instructions>
+When assigned the `post-mortem` action:
+
+This runs at the end of every feature. Your job is to generate a structured post-mortem with metrics, lessons learned, and patterns to remember.
+
+1. **Collect metrics** by reading the feature state and artifacts:
+   - Read `state.json` → extract timeline, review rounds, task counts
+   - Read `logs/events.jsonl` → calculate duration per phase, total duration
+   - Read `test-report-unit.md` → count tests written, failures found
+   - Read `test-report-qa.md` → count scenarios, bugs found (if exists)
+   - Read `tasks.md` → count total/completed/failed tasks
+   - Read `reviews/` directory → count total reviews, rejection rate
+
+2. **Calculate key metrics**:
+   - **Total duration**: time from workflow_started to now
+   - **Phase durations**: time spent in each major phase (planning, architecture, implementation, testing)
+   - **Review efficiency**: rejection rate, average rounds to approval
+   - **Bug density**: bugs found per task implemented
+   - **First-pass quality**: did code review approve on first round?
+
+3. **Identify patterns and lessons**:
+   - What went well? (e.g., "spec was approved on first review")
+   - What caused delays? (e.g., "3 review rounds on plan due to missing edge cases")
+   - What bugs were found? What category? (logic, security, integration)
+   - Were there any escalations? Why?
+
+4. **Write post-mortem** to `features/{TICKET_ID}/post-mortem.md`
+
+5. **Append metrics** to the global metrics history file (`.nloop/metrics-history.jsonl`):
+   ```json
+   {"ticket_id":"X","workflow":"default","started_at":"...","completed_at":"...","duration_s":N,"phases":{"brainstorm":N,"plan":N,...},"review_rounds":{"plan":N,"spec":N,"code":N},"tasks":{"total":N,"completed":N},"bugs":{"unit":N,"qa":N},"first_pass_approval":bool}
+   ```
+</instructions>
+
+<output_format>
+# Post-Mortem: {Ticket Title}
+
+## Ticket: {TICKET_ID}
+## Workflow: {workflow_name}
+## Date: {today's date}
+
+## Metrics Summary
+
+| Metric | Value |
+|--------|-------|
+| Total Duration | {duration} |
+| Workflow | {workflow_name} |
+| Phases Completed | {n} |
+| Review Rounds (Plan) | {n}/{max} |
+| Review Rounds (Spec) | {n}/{max} |
+| Review Rounds (Code) | {n}/{max} |
+| Tasks Total | {n} |
+| Tasks Completed | {n} |
+| Bugs Found (Unit) | {n} |
+| Bugs Found (QA) | {n} |
+| First-Pass Code Review | {yes/no} |
+| Escalations | {n} |
+
+## Phase Breakdown
+
+| Phase | Duration | Agent | Result |
+|-------|----------|-------|--------|
+| Brainstorm | {time} | tech-leader | completed |
+| Plan | {time} | product-planner | {n} rounds |
+| Architecture | {time} | architect | {n} rounds |
+| Implementation | {time} | {n} developers | {n} tasks |
+| Code Review | {time} | code-reviewer | {approved/rejected} |
+| Unit Testing | {time} | unit-tester | {passed/failed} |
+| QA Testing | {time} | qa-tester | {passed/failed/skipped} |
+
+## What Went Well
+- {observation 1}
+- {observation 2}
+
+## What Caused Delays
+- {delay 1}: {why and how long}
+- {delay 2}: {why and how long}
+
+## Bugs Analysis
+| # | Source | Category | Root Cause |
+|---|--------|----------|------------|
+| 1 | {unit/qa} | {logic/security/integration} | {brief explanation} |
+
+## Lessons Learned
+1. **{lesson}**: {explanation and recommendation for future features}
+2. **{lesson}**: {explanation and recommendation for future features}
+
+## Recommendations
+- {actionable recommendation for improving the process}
 </output_format>
 
 ---

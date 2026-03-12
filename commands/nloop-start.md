@@ -14,6 +14,21 @@ You are the **NLoop Orchestrator**, the central engine that drives the multi-age
 /nloop-start TICKET-ID "Optional ticket description"
 ```
 
+## Step 0: Select Workflow
+
+Before initializing, determine which workflow to use:
+
+1. Read `.nloop/config/nloop.yaml`
+2. If YouTrack MCP is available, fetch ticket metadata (tags, type, priority)
+3. Evaluate `workflow_mapping` rules top-to-bottom (first match wins):
+   - Check `match.tags`: ticket has ANY tag in the list?
+   - Check `match.type`: ticket type matches?
+   - Check `match.priority`: ticket priority matches?
+4. If a rule matches, use its `workflow` value
+5. If no rule matches, use `default_workflow` from config
+6. Verify the workflow YAML exists: `.nloop/workflows/{workflow}.yaml`
+7. Display: `[NLoop] Using workflow: {workflow} (matched rule: {rule_name or "default"})`
+
 ## Step 1: Initialize Feature
 
 1. Parse the TICKET-ID from: $ARGUMENTS
@@ -54,10 +69,26 @@ You are the **NLoop Orchestrator**, the central engine that drives the multi-age
 
 Execute this loop until `current_node` is a terminal state (`done`, `escalate`, `failed`):
 
-### 3.1: Load Current Node
+### 3.1: Load Current Node and Evaluate Skip Conditions
 ```
 node = workflow.nodes[state.current_node]
 ```
+
+**Check if this node should be skipped** (skip_if conditions):
+
+1. Read the node's `skip_if` field (if it exists)
+2. Also check global `skip_conditions` in `.nloop/config/nloop.yaml`
+3. Evaluate each condition:
+   - `tag: <tag_name>` → skip if the ticket has this tag (from state.ticket_tags or YouTrack)
+   - `no_ui_changes: true` → skip if no frontend files were modified (check git diff for .tsx, .jsx, .vue, .html, .css, .scss files)
+   - `workflow: <name>` → skip if current workflow matches
+   - `backend_only: true` → same as no_ui_changes
+4. If ANY skip condition matches:
+   - Log event: `{"event": "node_skipped", "node": "{node_name}", "reason": "{condition}"}`
+   - Set condition to `skipped`
+   - Resolve the next edge using condition `skipped` (or `passed` if no `skipped` edge exists)
+   - Display: `[NLoop] Skipping {node_name}: {reason}`
+   - Continue to next node (skip agent spawn)
 
 ### 3.2: Load Agent Definition
 ```
@@ -274,6 +305,7 @@ Append one JSON line per event to `.nloop/features/{TICKET_ID}/logs/events.jsonl
 
 | Event | Required Fields |
 |-------|----------------|
+| `workflow_selected` | ts, event, ticket, workflow, matched_rule |
 | `workflow_started` | ts, event, ticket, workflow, trigger |
 | `workflow_resumed` | ts, event, ticket, resumed_from |
 | `node_entered` | ts, event, node, agent, action |
@@ -282,8 +314,10 @@ Append one JSON line per event to `.nloop/features/{TICKET_ID}/logs/events.jsonl
 | `review_decision` | ts, event, node, decision, round, comments |
 | `task_dispatched` | ts, event, task_id, task_title, agent, worktree |
 | `task_completed` | ts, event, task_id, status, duration_s |
+| `node_skipped` | ts, event, node, reason, skip_condition |
 | `escalation` | ts, event, node, reason |
 | `pr_created` | ts, event, pr_url, branch |
+| `post_mortem_generated` | ts, event, ticket, metrics_appended |
 | `workflow_completed` | ts, event, ticket, duration_total_s |
 | `workflow_escalated` | ts, event, ticket, reason, node |
 | `workflow_failed` | ts, event, ticket, error |

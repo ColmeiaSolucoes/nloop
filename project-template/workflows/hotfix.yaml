@@ -1,0 +1,89 @@
+name: hotfix
+version: 1
+description: Minimal workflow for critical hotfixes — straight to implementation with expedited review
+
+defaults:
+  max_review_rounds: 1
+  timeout: 15m
+
+nodes:
+  brainstorm:
+    agent: tech-leader
+    action: brainstorm
+    description: Quick root cause analysis and fix strategy
+    produces: brainstorm.md
+
+  execute-tasks:
+    agent: project-manager
+    action: dispatch-tasks
+    description: Single developer implements the fix
+    consumes:
+      - brainstorm.md
+
+  code-review:
+    agent: code-reviewer
+    action: review-code
+    max_rounds: 1
+
+  unit-testing:
+    agent: unit-tester
+    action: run-tests
+    produces: test-report-unit.md
+
+  bug-fixing:
+    agent: tech-leader
+    action: dispatch-fixes
+    description: Fix any regressions
+    consumes:
+      - test-report-unit.md
+
+  create-pr:
+    agent: tech-leader
+    action: create-pr
+    description: Create PR for the hotfix
+
+  post-mortem:
+    agent: tech-leader
+    action: post-mortem
+    description: Generate metrics and lessons learned
+    produces: post-mortem.md
+
+edges:
+  # Brainstorm → straight to implementation (no plan, no spec, no tasks breakdown)
+  - from: brainstorm
+    to: execute-tasks
+
+  - from: execute-tasks
+    to: code-review
+
+  # Code Review — only 1 round, then escalate
+  - from: code-review
+    to: execute-tasks
+    condition: rejected
+
+  - from: code-review
+    to: escalate
+    condition: max_rounds_exceeded
+
+  - from: code-review
+    to: unit-testing
+    condition: approved
+
+  # Unit Testing — no QA for hotfixes
+  - from: unit-testing
+    to: create-pr
+    condition: passed
+
+  - from: unit-testing
+    to: bug-fixing
+    condition: failed
+
+  - from: bug-fixing
+    to: code-review
+
+  # PR → Post-mortem → Done
+  - from: create-pr
+    to: post-mortem
+
+  - from: post-mortem
+    to: done
