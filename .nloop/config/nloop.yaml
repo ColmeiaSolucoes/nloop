@@ -1,0 +1,40 @@
+version: 1
+
+# Default workflow to use for new features
+default_workflow: default
+
+# Polling settings
+polling:
+  enabled: true
+  interval: 30m
+  youtrack_query: "State: Open tag: nloop"
+
+# Model defaults per agent role
+models:
+  orchestrator: opus
+  planner: sonnet
+  architect: opus
+  manager: sonnet
+  developer: sonnet
+  reviewer: sonnet
+  tester: sonnet
+
+# Review defaults
+review:
+  max_rounds: 4
+  escalation_action: pause  # pause | notify | skip
+
+# Parallel execution
+parallel:
+  max_concurrent_agents: 3
+
+# Bitbucket
+bitbucket:
+  base_url: ""
+  workspace: ""
+  repo: ""
+  default_reviewers: []
+  branch_prefix: "feature/"
+
+# Feature directory
+features_dir: features

@@ -1,0 +1,189 @@
+name: default
+version: 1
+description: Standard development workflow for feature tickets
+
+defaults:
+  max_review_rounds: 4
+  timeout: 30m
+
+nodes:
+  brainstorm:
+    agent: tech-leader
+    action: brainstorm
+    description: Triage and brainstorm the ticket
+    produces: brainstorm.md
+
+  plan:
+    agent: product-planner
+    action: create-plan
+    description: Create detailed product plan
+    produces: plan.md
+    consumes:
+      - brainstorm.md
+
+  review-plan:
+    agent: tech-leader
+    action: review
+    target: plan.md
+    max_rounds: 4
+
+  architecture:
+    agent: architect
+    action: create-spec
+    description: Create technical specification
+    produces: spec.md
+    consumes:
+      - plan.md
+      - brainstorm.md
+
+  review-spec:
+    agent: tech-leader
+    action: review
+    target: spec.md
+    max_rounds: 4
+
+  brainstorm-refinement:
+    agent: tech-leader
+    action: brainstorm-refinement
+    description: Final brainstorm with plan and spec before task breakdown
+    produces: brainstorm-refined.md
+    consumes:
+      - plan.md
+      - spec.md
+
+  task-planning:
+    agent: project-manager
+    action: create-tasks
+    description: Break into EPICs and tasks with dependency graph
+    produces: tasks.md
+    consumes:
+      - plan.md
+      - spec.md
+      - brainstorm-refined.md
+
+  execute-tasks:
+    agent: project-manager
+    action: dispatch-tasks
+    description: Dispatch tasks to developer agents (parallel via worktrees)
+    parallel: true
+    consumes:
+      - tasks.md
+      - spec.md
+
+  code-review:
+    agent: code-reviewer
+    action: review-code
+    max_rounds: 4
+
+  unit-testing:
+    agent: unit-tester
+    action: run-tests
+    produces: test-report-unit.md
+
+  qa-testing:
+    agent: qa-tester
+    action: visual-test
+    produces: test-report-qa.md
+
+  bug-fixing:
+    agent: tech-leader
+    action: dispatch-fixes
+    description: Distribute bug fixes from test results
+    consumes:
+      - test-report-unit.md
+      - test-report-qa.md
+
+  create-pr:
+    agent: tech-leader
+    action: create-pr
+    description: Create PR on Bitbucket
+
+edges:
+  # Brainstorm → Plan
+  - from: brainstorm
+    to: plan
+
+  # Plan → Review
+  - from: plan
+    to: review-plan
+
+  # Review Plan outcomes
+  - from: review-plan
+    to: plan
+    condition: rejected
+
+  - from: review-plan
+    to: escalate
+    condition: max_rounds_exceeded
+
+  - from: review-plan
+    to: architecture
+    condition: approved
+
+  # Architecture → Review
+  - from: architecture
+    to: review-spec
+
+  # Review Spec outcomes
+  - from: review-spec
+    to: architecture
+    condition: rejected
+
+  - from: review-spec
+    to: escalate
+    condition: max_rounds_exceeded
+
+  - from: review-spec
+    to: brainstorm-refinement
+    condition: approved
+
+  # Refinement → Task Planning → Execution
+  - from: brainstorm-refinement
+    to: task-planning
+
+  - from: task-planning
+    to: execute-tasks
+
+  # Execution → Code Review
+  - from: execute-tasks
+    to: code-review
+
+  # Code Review outcomes
+  - from: code-review
+    to: execute-tasks
+    condition: rejected
+
+  - from: code-review
+    to: unit-testing
+    condition: approved
+
+  # Unit Testing outcomes
+  - from: unit-testing
+    to: qa-testing
+    condition: passed
+
+  - from: unit-testing
+    to: bug-fixing
+    condition: failed
+
+  # QA Testing outcomes
+  - from: qa-testing
+    to: create-pr
+    condition: passed
+
+  - from: qa-testing
+    to: bug-fixing
+    condition: failed
+
+  # Bug fixing → back to Code Review
+  - from: bug-fixing
+    to: code-review
+
+  # PR → Done
+  - from: create-pr
+    to: done
+
+# Special built-in nodes (no agent definition needed):
+#   done      — terminal success state, feature is complete
+#   escalate  — pauses pipeline and notifies human for intervention
+#   failed    — terminal failure state

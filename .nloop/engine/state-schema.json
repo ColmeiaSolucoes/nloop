@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NLoop Feature State",
+  "description": "State file for tracking a feature through the NLoop pipeline",
+  "type": "object",
+  "required": ["ticket_id", "ticket_title", "feature_dir", "workflow", "current_node", "status", "started_at", "updated_at"],
+  "properties": {
+    "ticket_id": {
+      "type": "string",
+      "description": "YouTrack ticket ID (e.g., PROJ-123)"
+    },
+    "ticket_title": {
+      "type": "string",
+      "description": "Human-readable ticket title"
+    },
+    "ticket_url": {
+      "type": ["string", "null"],
+      "description": "URL to the YouTrack ticket"
+    },
+    "ticket_description": {
+      "type": ["string", "null"],
+      "description": "Full ticket description text"
+    },
+    "feature_dir": {
+      "type": "string",
+      "description": "Relative path to the feature workspace directory"
+    },
+    "workflow": {
+      "type": "string",
+      "description": "Name of the workflow YAML to use"
+    },
+    "current_node": {
+      "type": "string",
+      "description": "Current node in the workflow graph"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "in_progress", "escalated", "completed", "failed"],
+      "description": "Overall feature status"
+    },
+    "trigger": {
+      "type": "string",
+      "enum": ["manual", "poll_auto", "poll_approved"],
+      "description": "How this feature was triggered"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completed_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "review_rounds": {
+      "type": "object",
+      "description": "Counter of review rounds per target artifact",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "tasks": {
+      "type": "object",
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "completed": { "type": "integer", "minimum": 0 },
+        "in_progress": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "integer" },
+              "title": { "type": "string" },
+              "status": { "type": "string", "enum": ["pending", "in_progress", "completed", "failed"] },
+              "group": { "type": "integer" },
+              "worktree_branch": { "type": ["string", "null"] },
+              "assigned_at": { "type": ["string", "null"] },
+              "completed_at": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    },
+    "pr": {
+      "type": "object",
+      "properties": {
+        "url": { "type": ["string", "null"] },
+        "branch": { "type": ["string", "null"] },
+        "status": { "type": ["string", "null"] }
+      }
+    },
+    "escalation": {
+      "type": "object",
+      "properties": {
+        "active": { "type": "boolean" },
+        "reason": { "type": ["string", "null"] },
+        "node": { "type": ["string", "null"] },
+        "at": { "type": ["string", "null"] }
+      }
+    },
+    "history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "node": { "type": "string" },
+          "agent": { "type": "string" },
+          "action": { "type": "string" },
+          "status": { "type": "string" },
+          "round": { "type": "integer" },
+          "started_at": { "type": "string" },
+          "completed_at": { "type": ["string", "null"] },
+          "output_artifact": { "type": ["string", "null"] },
+          "decision": { "type": ["string", "null"] },
+          "comments": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,30 @@
+version: 1
+
+# Rules are evaluated top-to-bottom, first match wins.
+# Match criteria: tags (array contains), priority (array contains), project (array contains).
+# Empty match {} acts as catch-all.
+# Actions: auto_start, require_approval, ignore.
+
+rules:
+  - name: auto-start-tagged
+    description: Auto-start tickets tagged with 'nloop-auto'
+    match:
+      tags: [nloop-auto]
+    action: auto_start
+
+  - name: critical-needs-approval
+    description: Critical tickets need human approval before starting
+    match:
+      priority: [Critical, Urgent]
+    action: require_approval
+
+  # - name: project-specific
+  #   description: Auto-start all tickets from a specific project
+  #   match:
+  #     project: [FRONTEND]
+  #   action: auto_start
+
+  - name: default
+    description: Everything else needs approval
+    match: {}
+    action: require_approval
