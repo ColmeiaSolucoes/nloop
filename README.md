@@ -268,6 +268,7 @@ Create new workflows in `.nloop/workflows/` or edit existing ones. Each workflow
 | `/nloop-resume TICKET-ID` | Resume a paused/escalated feature |
 | `/nloop-status [TICKET-ID]` | View dashboard or feature details |
 | `/nloop-metrics [TICKET-ID]` | View metrics and trends |
+| `/nloop-dryrun TICKET-ID` | Simulate a pipeline run without executing |
 | `/nloop-poll` | Poll YouTrack for new tickets |
 
 ## Requirements
