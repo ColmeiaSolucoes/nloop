@@ -84,6 +84,9 @@ After `/nloop-init`, compare and merge your customizations back.
 # Resume a paused/crashed feature
 /nloop-resume TICKET-ID
 
+# Abort a running pipeline
+/nloop-abort TICKET-ID
+
 # Check status dashboard
 /nloop-status
 
@@ -125,11 +128,13 @@ NLoop follows a **state graph orchestration** pattern. A central orchestrator re
 │  4. Read agent definition (.md file)                            │
 │  5. Build prompt with consumed artifacts                        │
 │  6. Spawn agent (Claude Code Agent tool)                        │
-│  7. Parse output: APPROVED/REJECTED/PASSED/FAILED               │
-│  8. Resolve next edge based on condition                        │
-│  9. Update state.json + log event                               │
-│ 10. Send notification (if configured)                           │
-│ 11. Go to step 2 (loop until terminal state)                    │
+│  7. Execute also_runs actions (if configured)                   │
+│  8. Parse output: APPROVED/REJECTED/PASSED/WARNING/FAILED       │
+│  9. Resolve next edge based on condition                        │
+│ 10. Update state.json + log event + track model usage           │
+│ 11. Update YouTrack ticket status (if MCP available)            │
+│ 12. Send notification (if configured)                           │
+│ 13. Go to step 2 (loop until terminal state)                    │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -458,13 +463,70 @@ git_platform: github  # or bitbucket
 
 github:
   default_reviewers: ["user1", "user2"]
-  branch_prefix: "feature/"
   base_branch: "main"
   draft: false
   labels: ["enhancement"]
+
+  # Branch prefix per workflow type
+  branch_prefix:
+    default: "feature/"
+    bugfix: "bugfix/"
+    hotfix: "hotfix/"
+    refactor: "refactor/"
 ```
 
+The branch prefix is selected automatically based on the active workflow. A bugfix ticket creates `bugfix/PROJ-123`, a hotfix creates `hotfix/PROJ-123`, etc.
+
 GitHub uses `gh` CLI (authenticate with `gh auth login`). Bitbucket uses the REST API with `BITBUCKET_TOKEN`.
+
+### YouTrack Auto-Status Updates
+
+When a pipeline starts, NLoop automatically updates the YouTrack ticket status and adds progress comments:
+
+| Event | YouTrack Update |
+|-------|----------------|
+| Pipeline started | Status → "In Progress" + comment |
+| Pipeline completed | Status → "Done" + comment with PR link |
+| Pipeline escalated | Comment with escalation reason |
+| Pipeline failed | Comment with error details |
+
+Configure the status values in `.nloop/config/nloop.yaml`:
+
+```yaml
+youtrack_status:
+  on_start: "In Progress"
+  on_complete: "Done"
+  on_escalate: ""     # Empty = don't change status, just add comment
+  on_fail: ""
+```
+
+### Worktree Lifecycle
+
+When tasks run in parallel, NLoop manages git worktrees automatically:
+
+1. **Create**: Feature branch `{prefix}{TICKET_ID}`, task branches `{TICKET_ID}-task-{N}`
+2. **Execute**: Each developer agent works in its own isolated worktree
+3. **Merge**: After each batch completes, task branches are merged back into the feature branch
+4. **Cleanup**: Worktrees and task branches are removed after successful merge
+5. **Conflict handling**: If merge conflicts occur, the task is marked as failed and sent to bug-fixing
+
+Use `/nloop-abort TICKET-ID --cleanup` to remove orphaned worktrees if a pipeline crashes.
+
+### Escalation Actions
+
+When review rounds exceed the maximum, NLoop follows the configured `escalation_action`:
+
+```yaml
+review:
+  max_rounds: 4
+  escalation_action: pause  # pause | notify | skip
+```
+
+| Action | Behavior |
+|--------|----------|
+| `pause` | Pipeline stops. Human must `/nloop-resume` after resolving |
+| `notify` | Send notification, auto-approve, and continue. Pipeline keeps running |
+| `skip` | Skip the review entirely and move to the next phase |
 
 ## Project Structure
 
@@ -499,9 +561,13 @@ Edit `.nloop/config/nloop.yaml`:
 git_platform: github
 github:
   default_reviewers: ["teammate1", "teammate2"]
-  branch_prefix: "feature/"
   base_branch: "main"
   draft: false
+  branch_prefix:
+    default: "feature/"
+    bugfix: "bugfix/"
+    hotfix: "hotfix/"
+    refactor: "refactor/"
 
 # OR Bitbucket (uses REST API)
 git_platform: bitbucket
@@ -510,7 +576,11 @@ bitbucket:
   workspace: "your-team"
   repo: "your-repo"
   default_reviewers: ["username1"]
-  branch_prefix: "feature/"
+  branch_prefix:
+    default: "feature/"
+    bugfix: "bugfix/"
+    hotfix: "hotfix/"
+    refactor: "refactor/"
 ```
 
 ### YouTrack Integration
@@ -588,6 +658,7 @@ Create new workflows in `.nloop/workflows/` or edit existing ones. Each workflow
 | `/nloop-init` | Initialize NLoop in the current project |
 | `/nloop-start TICKET-ID` | Start a feature pipeline |
 | `/nloop-resume TICKET-ID` | Resume a paused/escalated feature |
+| `/nloop-abort TICKET-ID` | Abort a running pipeline, cleanup worktrees |
 | `/nloop-status [TICKET-ID]` | View dashboard or feature details |
 | `/nloop-metrics [TICKET-ID]` | View metrics and trends |
 | `/nloop-dryrun TICKET-ID` | Simulate a pipeline run without executing |

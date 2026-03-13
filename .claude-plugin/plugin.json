@@ -9,5 +9,5 @@
   "homepage": "https://github.com/ColmeiaSolucoes/nloop",
   "repository": "https://github.com/ColmeiaSolucoes/nloop",
   "license": "MIT",
-  "keywords": ["agents", "orchestration", "multi-agent", "devops", "workflow", "youtrack", "bitbucket", "code-review", "testing"]
+  "keywords": ["agents", "orchestration", "multi-agent", "devops", "workflow", "youtrack", "github", "bitbucket", "code-review", "testing"]
 }

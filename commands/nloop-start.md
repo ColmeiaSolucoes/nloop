@@ -70,7 +70,11 @@ Before initializing, determine which workflow to use:
    - Call `youtrack_get_ticket` to get title, description, priority, tags
    - Store description in `state.ticket_description`
    - Store URL in `state.ticket_url`
-7. Log event: `workflow_started`
+7. **Update YouTrack ticket status** (if MCP available):
+   - Call `youtrack_update_status` with status `"In Progress"`
+   - Call `youtrack_add_comment` with: `"NLoop pipeline started. Workflow: {workflow}, Trigger: {trigger}"`
+   - If update fails, log warning but continue — ticket updates are best-effort
+8. Log event: `workflow_started`
 
 ## Step 2: Load Workflow
 
@@ -200,30 +204,98 @@ Agent(
 
 **Special case — execute-tasks node (parallel dispatch)**:
 When `node.parallel == true` and `node.action == "dispatch-tasks"`:
+
+#### Phase A: Prepare Feature Branch
+1. Determine the branch prefix from config:
+   - Read `github.branch_prefix` or `bitbucket.branch_prefix` from nloop.yaml
+   - If it's an object, use `branch_prefix[state.workflow]` (e.g., `hotfix/` for hotfix workflow)
+   - If it's a string, use it directly (backward compatible)
+2. Ensure we're on a feature branch:
+   ```bash
+   git checkout -b {branch_prefix}{TICKET_ID} 2>/dev/null || git checkout {branch_prefix}{TICKET_ID}
+   ```
+
+#### Phase B: Dispatch Task Groups
 1. Read `.nloop/features/{TICKET_ID}/tasks.md`
 2. Identify the next group of runnable tasks (dependencies met)
 3. For each task in the group (up to `config.parallel.max_concurrent_agents`):
    - Spawn a developer agent with `isolation: "worktree"`
+   - The worktree branch name follows: `{TICKET_ID}-task-{task_id}`
    - Pass only the relevant task + spec excerpt
-4. Wait for all agents to complete
+4. Wait for all agents in the current batch to complete
 5. Collect results, update tasks.md progress
-6. If more groups remain, repeat
-7. When all tasks are done, proceed to next edge
 
-### 3.6: Process Agent Output
+#### Phase C: Merge Worktrees
+After each batch of parallel tasks completes:
+1. For each completed task worktree:
+   a. Switch to the feature branch: `git checkout {branch_prefix}{TICKET_ID}`
+   b. Merge the task branch:
+      ```bash
+      git merge {TICKET_ID}-task-{task_id} --no-edit
+      ```
+   c. If merge conflict:
+      - Log the conflict details
+      - Try auto-resolution for simple conflicts (both added different files)
+      - If unresolvable: mark task as `failed` with reason "merge_conflict", escalate to tech-leader dispatch-fixes
+   d. After successful merge, clean up the worktree:
+      ```bash
+      git worktree remove .worktrees/{TICKET_ID}-task-{task_id}
+      git branch -d {TICKET_ID}-task-{task_id}
+      ```
+2. Update task status in tasks.md and state.json
+
+#### Phase D: Continue or Complete
+1. If more task groups remain, repeat from Phase B
+2. When all tasks are done, proceed to next edge
+
+#### Worktree Error Recovery
+- If a worktree creation fails: retry once, then skip that task and mark as `failed`
+- If a merge fails repeatedly: save the conflict details, escalate the task to bug-fixing
+- At pipeline completion (done/escalate/abort): always run cleanup to remove any orphaned worktrees
+
+### 3.6: Execute `also_runs` Actions
+
+After the primary agent completes, check if the node has an `also_runs` field:
+
+```yaml
+also_runs:
+  - generate-help-article
+```
+
+If `also_runs` is present:
+1. For each additional action in the list:
+   a. Use the **same agent** definition as the node's primary agent
+   b. Build a new prompt with the additional action name
+   c. Pass the same consumed artifacts + the primary action's output
+   d. Spawn a new agent (or run inline if the node is inline)
+   e. Collect the output artifact
+2. All `also_runs` actions run **sequentially** after the primary action
+3. If any `also_runs` action fails, log a warning but do NOT block the pipeline — `also_runs` are supplementary
+4. Log each `also_runs` execution as a separate event: `{"event": "also_runs_completed", "node": "{node}", "action": "{action}", "status": "completed|failed"}`
+
+**Example**: When `docs-update` completes, if `also_runs: [generate-help-article]`:
+1. The docs-writer agent runs `update-docs` (primary) → produces `docs-update.md`
+2. Then the docs-writer agent runs `generate-help-article` → produces `help-article.md`
+3. Both artifacts are saved to the feature directory
+
+### 3.7: Process Agent Output
 
 1. Parse the agent's response for:
    - **Decision** (for review nodes): look for `### Decision: APPROVED` or `### Decision: REJECTED`
    - **Result** (for test nodes): look for `### Result: PASSED` or `### Result: FAILED`
+   - **Result** (for perf-analysis): look for `### Result: PASSED`, `### Result: WARNING`, or `### Result: FAILED`
    - **Status** (for other nodes): `COMPLETED` by default if no errors
 2. Determine the `condition` from the output:
    - `approved` -> if Decision is APPROVED
    - `rejected` -> if Decision is REJECTED
    - `passed` -> if Result is PASSED
+   - `warning` -> if Result is WARNING (perf analysis — non-blocking)
    - `failed` -> if Result is FAILED
+   - `completed` -> for nodes that produce artifacts without a decision/result
    - `null` -> unconditional (no decision/result in output)
+3. Track model usage: increment `state.metrics.models_used[agent.model]`
 
-### 3.7: Handle Review Rounds
+### 3.8: Handle Review Rounds
 
 If the current node is a review node (has `target` field):
 1. Read the current round count: `state.review_rounds[node.target]`
@@ -233,7 +305,7 @@ If the current node is a review node (has `target` field):
    - If rounds exceeded: override condition to `max_rounds_exceeded`
 3. Save the review artifact to `.nloop/features/{TICKET_ID}/reviews/{target}-review-{round}.md`
 
-### 3.8: Resolve Next Edge
+### 3.9: Resolve Next Edge
 
 1. Find all edges where `edge.from == state.current_node`
 2. If condition is not null:
@@ -266,19 +338,33 @@ The review loop is the most critical mechanism in NLoop. Here's exactly how it w
 3. The review artifact is saved (for audit trail)
 
 **Escalation:**
-1. When `max_rounds_exceeded`, state is updated:
-   ```json
-   "escalation": {
-     "active": true,
-     "reason": "Review of plan exceeded 4 rounds without approval",
-     "node": "review-plan",
-     "at": "{timestamp}"
-   }
-   ```
-2. Status changes to `escalated`
-3. Pipeline pauses — user must `/nloop-resume` after resolving
+1. When `max_rounds_exceeded`, check `review.escalation_action` from nloop.yaml:
 
-### 3.9: Update State
+   **If `escalation_action: pause`** (default):
+   - Update state:
+     ```json
+     "escalation": {
+       "active": true,
+       "reason": "Review of plan exceeded 4 rounds without approval",
+       "node": "review-plan",
+       "at": "{timestamp}"
+     }
+     ```
+   - Status changes to `escalated`
+   - Pipeline pauses — user must `/nloop-resume` after resolving
+
+   **If `escalation_action: notify`**:
+   - Send notification (via configured webhooks) about the escalation
+   - Do NOT pause — auto-approve and continue to the next phase
+   - Add a warning to the history: `"auto_approved_after_escalation"`
+   - This allows the pipeline to keep running while humans are notified
+
+   **If `escalation_action: skip`**:
+   - Skip the current review and its target phase entirely
+   - Move to the next node after the review (as if approved)
+   - Log: `"escalation_action: skip — auto-advancing past {node}"`
+
+### 3.10: Update State
 
 1. Add history entry:
    ```json
@@ -286,8 +372,9 @@ The review loop is the most critical mechanism in NLoop. Here's exactly how it w
      "node": "{previous_node}",
      "agent": "{node.agent}",
      "action": "{node.action}",
-     "status": "{completed|rejected|approved|passed|failed}",
+     "status": "{completed|rejected|approved|passed|failed|warning}",
      "round": {round number if review},
+     "model": "{agent.model from frontmatter}",
      "started_at": "{start_time}",
      "completed_at": "{now}",
      "output_artifact": "{node.produces or null}",
@@ -298,7 +385,7 @@ The review loop is the most critical mechanism in NLoop. Here's exactly how it w
 2. Update `state.updated_at` to current timestamp
 3. Write state.json completely (overwrite)
 
-### 3.10: Log Event
+### 3.11: Log Event
 
 Append to `.nloop/features/{TICKET_ID}/logs/events.jsonl`:
 ```json
@@ -306,7 +393,7 @@ Append to `.nloop/features/{TICKET_ID}/logs/events.jsonl`:
 {"ts":"{now}","event":"edge_traversed","from":"{previous_node}","to":"{new_node}","condition":"{condition}"}
 ```
 
-### 3.11: Display Progress
+### 3.12: Display Progress
 
 Display a progress update **every time an agent changes or a task completes**. This keeps the user informed without requiring interaction.
 
@@ -347,7 +434,7 @@ Display a progress update **every time an agent changes or a task completes**. T
 [NLoop] {TICKET_ID} — ⏭️ Skipping {node_name}: {reason}
 ```
 
-### 3.12: Continue Loop
+### 3.13: Continue Loop
 
 Go back to Step 3.1 with the new `current_node`.
 
@@ -357,7 +444,10 @@ Go back to Step 3.1 with the new `current_node`.
 1. Set `state.status = "completed"`
 2. Set `state.completed_at` to current timestamp
 3. Log event: `workflow_completed`
-4. Display:
+4. **Update YouTrack ticket** (if MCP available):
+   - Call `youtrack_update_status` with status `"Done"` (or configured done_status from nloop.yaml)
+   - Call `youtrack_add_comment` with: `"NLoop pipeline completed. PR: {state.pr.url}"`
+5. Display:
    ```
    NLoop: Feature {TICKET_ID} completed successfully!
    PR: {state.pr.url}
@@ -367,7 +457,9 @@ Go back to Step 3.1 with the new `current_node`.
 ### If current_node == "escalate"
 1. Set `state.status = "escalated"`
 2. Log event: `workflow_escalated`
-3. Display:
+3. **Update YouTrack ticket** (if MCP available):
+   - Call `youtrack_add_comment` with: `"NLoop pipeline escalated at node '{state.escalation.node}'. Reason: {state.escalation.reason}. Human intervention needed."`
+4. Display:
    ```
    NLoop: Feature {TICKET_ID} escalated — human intervention needed.
    Reason: {state.escalation.reason}
@@ -378,7 +470,9 @@ Go back to Step 3.1 with the new `current_node`.
 ### If current_node == "failed"
 1. Set `state.status = "failed"`
 2. Log event: `workflow_failed`
-3. Display failure details
+3. **Update YouTrack ticket** (if MCP available):
+   - Call `youtrack_add_comment` with: `"NLoop pipeline failed at node '{state.current_node}'. Check logs at .nloop/features/{TICKET_ID}/logs/"`
+4. Display failure details
 
 ## Step 5: Notifications
 

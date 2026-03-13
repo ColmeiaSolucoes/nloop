@@ -21,6 +21,19 @@
       "type": ["string", "null"],
       "description": "Full ticket description text"
     },
+    "ticket_tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Tags from YouTrack ticket (used for workflow selection and skip conditions)"
+    },
+    "ticket_type": {
+      "type": ["string", "null"],
+      "description": "Ticket type from YouTrack (e.g., Bug, Feature, Task)"
+    },
+    "ticket_priority": {
+      "type": ["string", "null"],
+      "description": "Ticket priority from YouTrack (e.g., Critical, Major, Normal)"
+    },
     "feature_dir": {
       "type": "string",
       "description": "Relative path to the feature workspace directory"
@@ -29,13 +42,17 @@
       "type": "string",
       "description": "Name of the workflow YAML to use"
     },
+    "workflow_matched_rule": {
+      "type": ["string", "null"],
+      "description": "Name of the workflow_mapping rule that matched (or null for default)"
+    },
     "current_node": {
       "type": "string",
       "description": "Current node in the workflow graph"
     },
     "status": {
       "type": "string",
-      "enum": ["pending", "in_progress", "escalated", "completed", "failed"],
+      "enum": ["pending", "in_progress", "escalated", "completed", "failed", "aborted"],
       "description": "Overall feature status"
     },
     "trigger": {
@@ -54,6 +71,11 @@
     "completed_at": {
       "type": ["string", "null"],
       "format": "date-time"
+    },
+    "skipped_nodes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "List of nodes that were skipped during execution"
     },
     "review_rounds": {
       "type": "object",
@@ -87,11 +109,50 @@
         }
       }
     },
+    "metrics": {
+      "type": "object",
+      "description": "Runtime metrics collected during pipeline execution",
+      "properties": {
+        "phases": {
+          "type": "object",
+          "description": "Duration in seconds per phase",
+          "additionalProperties": { "type": "number" }
+        },
+        "bugs_found": { "type": "integer", "minimum": 0 },
+        "bugs_fixed": { "type": "integer", "minimum": 0 },
+        "first_pass_code_review": { "type": ["boolean", "null"] },
+        "perf_findings": {
+          "type": "object",
+          "properties": {
+            "critical": { "type": "integer", "minimum": 0 },
+            "warning": { "type": "integer", "minimum": 0 },
+            "info": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "models_used": {
+          "type": "object",
+          "description": "Count of agent calls per model",
+          "additionalProperties": { "type": "integer" }
+        }
+      }
+    },
+    "docs": {
+      "type": "object",
+      "description": "Documentation artifacts status",
+      "properties": {
+        "changelog_updated": { "type": "boolean" },
+        "files_updated": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
     "pr": {
       "type": "object",
       "properties": {
         "url": { "type": ["string", "null"] },
         "branch": { "type": ["string", "null"] },
+        "platform": { "type": ["string", "null"] },
         "status": { "type": ["string", "null"] }
       }
     },
@@ -104,6 +165,18 @@
         "at": { "type": ["string", "null"] }
       }
     },
+    "notifications_sent": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "event": { "type": "string" },
+          "platform": { "type": "string" },
+          "at": { "type": "string" },
+          "status": { "type": "string" }
+        }
+      }
+    },
     "history": {
       "type": "array",
       "items": {
@@ -114,6 +187,7 @@
           "action": { "type": "string" },
           "status": { "type": "string" },
           "round": { "type": "integer" },
+          "model": { "type": ["string", "null"] },
           "started_at": { "type": "string" },
           "completed_at": { "type": ["string", "null"] },
           "output_artifact": { "type": ["string", "null"] },

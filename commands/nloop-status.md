@@ -60,17 +60,27 @@ Display the following dashboard:
 
 ### Progress Bar Logic
 
-The workflow has these ordered nodes for progress calculation:
-```
-brainstorm -> plan -> review-plan -> architecture -> review-spec -> brainstorm-refinement -> task-planning -> execute-tasks -> code-review -> unit-testing -> qa-testing -> create-pr -> done
-```
-Total: 13 steps. Calculate progress as `(current_node_index / 13)`.
+Progress is calculated **dynamically** from the workflow YAML — NOT from a hardcoded list.
 
-Progress bar format: `##########------` (12 chars, filled proportionally)
+1. Read the workflow YAML for the feature (from `state.workflow`)
+2. Build the ordered node list by traversing edges from the first node to `done` (following the happy path — approved, passed conditions)
+3. Calculate total steps = number of nodes in the happy path
+4. Find the index of `state.current_node` in the ordered list
+5. Progress = `(current_node_index / total_steps)`
+
+```
+Progress bar format: ##########------ (12 chars, filled proportionally)
+```
 
 For `execute-tasks` node, show task progress: `Tasks: {completed}/{total}`
 
 For review nodes, show round: `review-plan (2/4)`
+
+**Example node counts per workflow:**
+- default: ~17 nodes (brainstorm → post-mortem)
+- bugfix: ~12 nodes (brainstorm → post-mortem, no plan/spec)
+- hotfix: ~8 nodes (brainstorm → post-mortem, minimal)
+- refactor: ~15 nodes (brainstorm → post-mortem, no QA)
 
 ## Detail Mode (/nloop-status TICKET-ID)
 
@@ -119,16 +129,21 @@ Read `.nloop/features/{TICKET-ID}/state.json`
 
 ### Step 3: Artifacts Check
 
-List all expected artifacts and check which ones exist:
+List all expected artifacts (based on the workflow being used) and check which ones exist:
 - brainstorm.md
-- plan.md
-- spec.md
-- brainstorm-refined.md
-- tasks.md
+- plan.md (not in bugfix/hotfix)
+- spec.md (not in bugfix/hotfix)
+- brainstorm-refined.md (only in default)
+- tasks.md (not in hotfix)
+- perf-report.md (only in default/refactor)
 - test-report-unit.md
-- test-report-qa.md
+- test-report-qa.md (not in hotfix/refactor)
+- docs-update.md
+- changelog-entry.md
+- help-article.md
+- post-mortem.md
 
-Mark as `[x]` if file exists, `[ ]` if not.
+Mark as `[x]` if file exists, `[ ]` if not, `-` if not expected for this workflow.
 
 ## Edge Cases
 

@@ -253,16 +253,23 @@ If there are more bugs than `max_concurrent_agents`, batch them.
 When assigned the `create-pr` action:
 
 1. **Read config**: Load `.nloop/config/nloop.yaml` to determine `git_platform` (github or bitbucket)
-2. **Prepare branch**:
+2. **Determine branch prefix**:
+   - Read `state.json` to get the `workflow` name
+   - Read `branch_prefix` from the platform config (github or bitbucket)
+   - If `branch_prefix` is an object (per-workflow), use `branch_prefix[workflow]`
+   - If `branch_prefix` is a string (legacy), use it directly
+   - Fallback: `"feature/"` if not configured
+   - Example: workflow `hotfix` → prefix `hotfix/` → branch `hotfix/PROJ-123`
+3. **Prepare branch**:
    - Check if on a feature branch: `git branch --show-current`
    - If not, create one: `git checkout -b {branch_prefix}{TICKET_ID}`
    - Stage all changes: `git add -A`
    - Commit: `git commit -m "{TICKET_ID}: {ticket_title}"`
-3. **Push to remote**:
+4. **Push to remote**:
    ```bash
    git push -u origin {branch_prefix}{TICKET_ID}
    ```
-4. **Build PR description** from feature artifacts:
+5. **Build PR description** from feature artifacts:
    - Read plan.md → extract Overview section for summary (if exists)
    - Read brainstorm.md → use as summary if no plan (bugfix/hotfix workflows)
    - Read tasks.md → list completed tasks (if exists)
@@ -270,7 +277,7 @@ When assigned the `create-pr` action:
    - Read test-report-qa.md → summarize QA results (if exists)
    - Read post-mortem.md → include key metrics (if exists)
 
-5. **Create PR** based on `git_platform`:
+6. **Create PR** based on `git_platform`:
 
    ### If git_platform == "github":
    Use the `gh` CLI (must be authenticated via `gh auth login`):
@@ -305,8 +312,8 @@ When assigned the `create-pr` action:
      }'
    ```
 
-6. **Update state**: Write the PR URL and branch to `state.json`
-7. **Comment on YouTrack** (if MCP available): Add a comment to the ticket with the PR link
+7. **Update state**: Write the PR URL and branch to `state.json`
+8. **Comment on YouTrack** (if MCP available): Add a comment to the ticket with the PR link
 </instructions>
 
 <output_format>

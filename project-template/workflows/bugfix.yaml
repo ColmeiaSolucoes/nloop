@@ -126,6 +126,7 @@ edges:
   # Docs Update → Create PR
   - from: docs-update
     to: create-pr
+    condition: completed
 
   - from: docs-update
     to: create-pr

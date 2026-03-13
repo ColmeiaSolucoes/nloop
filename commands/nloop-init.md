@@ -128,6 +128,7 @@ NLoop initialized successfully!
   Quick Start:
     /nloop-start TICKET-ID     Start a feature
     /nloop-resume TICKET-ID    Resume a paused feature
+    /nloop-abort TICKET-ID     Abort a running pipeline
     /nloop-status              View dashboard
     /nloop-poll                Check YouTrack for new tickets
 

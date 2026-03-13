@@ -19,8 +19,13 @@
 - [ ] spec.md
 - [ ] brainstorm-refined.md
 - [ ] tasks.md
+- [ ] perf-report.md
 - [ ] test-report-unit.md
 - [ ] test-report-qa.md
+- [ ] docs-update.md
+- [ ] changelog-entry.md
+- [ ] help-article.md
+- [ ] post-mortem.md
 
 ## Review History
 <!-- Auto-updated: review rounds and decisions -->

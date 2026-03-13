@@ -8,6 +8,7 @@ description: >
 
 tools:
   - Read
+  - Write
   - Grep
   - Glob
   - Bash

@@ -198,11 +198,15 @@ edges:
     to: perf-analysis
     condition: approved
 
-  # Performance Analysis → Unit Testing (unconditional — warnings don't block)
+  # Performance Analysis → Unit Testing (warnings don't block)
   - from: perf-analysis
     to: unit-testing
+    condition: passed
 
-  # Perf skipped → Unit Testing
+  - from: perf-analysis
+    to: unit-testing
+    condition: warning
+
   - from: perf-analysis
     to: unit-testing
     condition: skipped
@@ -232,6 +236,7 @@ edges:
   # Docs Update → Create PR
   - from: docs-update
     to: create-pr
+    condition: completed
 
   - from: docs-update
     to: create-pr

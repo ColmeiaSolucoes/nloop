@@ -49,6 +49,14 @@ polling:
   # OR: raw YouTrack query (overrides filters above if not empty)
   youtrack_query: ""
 
+# YouTrack status mapping — NLoop updates ticket status at key events
+# Set to empty string to disable auto-update for that event
+youtrack_status:
+  on_start: "In Progress"
+  on_complete: "Done"
+  on_escalate: ""            # Don't change status on escalation (just add comment)
+  on_fail: ""                # Don't change status on failure (just add comment)
+
 # Model defaults per agent role
 models:
   orchestrator: opus
@@ -80,10 +88,17 @@ git_platform: github  # github | bitbucket
 github:
   # Uses `gh` CLI — must be authenticated: `gh auth login`
   default_reviewers: []
-  branch_prefix: "feature/"
   base_branch: "main"
   draft: false          # Create as draft PR
   labels: []            # Labels to add to PR (e.g., ["enhancement", "nloop"])
+
+  # Branch prefix per workflow type
+  # The orchestrator picks the prefix based on the active workflow
+  branch_prefix:
+    default: "feature/"
+    bugfix: "bugfix/"
+    hotfix: "hotfix/"
+    refactor: "refactor/"
 
 # Bitbucket (used when git_platform: bitbucket)
 bitbucket:
@@ -91,7 +106,13 @@ bitbucket:
   workspace: ""
   repo: ""
   default_reviewers: []
-  branch_prefix: "feature/"
+
+  # Branch prefix per workflow type
+  branch_prefix:
+    default: "feature/"
+    bugfix: "bugfix/"
+    hotfix: "hotfix/"
+    refactor: "refactor/"
 
 # ─── Metrics ─────────────────────────────────────────────────
 metrics:
