@@ -1,8 +1,8 @@
 # NLoop — Multi-Agent Orchestration for Claude Code
 
-A multi-agent orchestration system that automates the full software development lifecycle — from ticket intake (YouTrack) through planning, architecture, implementation, code review, testing, and PR creation (GitHub/Bitbucket).
+A multi-agent orchestration system that automates the full software development lifecycle — from ticket intake (YouTrack) or feature description through planning, architecture, implementation, code review, performance analysis, testing, documentation, and PR creation (GitHub/Bitbucket).
 
-NLoop models a virtual software team with 8 specialized agents that communicate through a declarative YAML state graph workflow with review loops, parallel execution via git worktrees, smart skip conditions, and automatic post-mortem metrics.
+NLoop models a virtual software team with 10 specialized agents that communicate through a declarative YAML state graph workflow with review loops, parallel execution via git worktrees, smart skip conditions, webhook notifications, and automatic post-mortem metrics.
 
 ## Installation
 
@@ -74,28 +74,171 @@ Then run `/nloop-init` in Claude Code.
 
 ## How It Works
 
-NLoop orchestrates a pipeline of specialized AI agents through a state graph:
+### The Agent Loop
+
+NLoop follows a **state graph orchestration** pattern. A central orchestrator reads a YAML workflow definition and executes it node by node. Each node spawns a specialized AI agent that performs one task, produces an artifact, and returns control to the orchestrator. The orchestrator evaluates the result, resolves the next edge in the graph, and continues.
 
 ```
-Ticket → Brainstorm → Plan → Review → Architecture → Review → Refinement
-    → Task Planning → Parallel Implementation → Code Review → Perf Analysis
-    → Tests → Docs/Changelog → PR → Post-Mortem → Notify
+┌─────────────────────────────────────────────────────────────────┐
+│                     ORCHESTRATOR (nloop-start)                  │
+│                                                                 │
+│  1. Read workflow YAML (state graph)                            │
+│  2. Load current node                                           │
+│  3. Check skip conditions → skip if matched                     │
+│  4. Read agent definition (.md file)                            │
+│  5. Build prompt with consumed artifacts                        │
+│  6. Spawn agent (Claude Code Agent tool)                        │
+│  7. Parse output: APPROVED/REJECTED/PASSED/FAILED               │
+│  8. Resolve next edge based on condition                        │
+│  9. Update state.json + log event                               │
+│ 10. Send notification (if configured)                           │
+│ 11. Go to step 2 (loop until terminal state)                    │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-Each step is handled by a specialized agent:
+Agents **never talk to each other directly**. They communicate through **artifacts** — markdown files stored in the feature directory (`features/{TICKET_ID}/`). Each agent reads artifacts from previous agents and produces new ones.
 
-| Agent | Role | Model |
-|-------|------|-------|
-| **Tech Leader** | Orchestrates, reviews, escalates, post-mortem | opus |
-| **Product Planner** | Decomposes ideas, researches, creates plans | sonnet |
-| **Architect** | Technical specification and design | opus |
-| **Project Manager** | EPICs, tasks, dependency graphs | sonnet |
-| **Developer** | Implements tasks (parallel via worktrees) | sonnet |
-| **Code Reviewer** | Reviews code quality and security | sonnet |
-| **Perf Analyzer** | Bundle size, N+1 queries, algorithmic complexity | sonnet |
-| **Unit Tester** | Runs/writes unit and integration tests | sonnet |
-| **QA Tester** | Visual/E2E testing via Chrome MCP | sonnet |
-| **Docs Writer** | Changelog generation, README/API doc updates | sonnet |
+### Full Pipeline (default workflow)
+
+```
+                    ┌──────────────┐
+                    │  BRAINSTORM  │ tech-leader
+                    │              │ → brainstorm.md
+                    └──────┬───────┘
+                           │
+                    ┌──────▼───────┐
+                    │     PLAN     │ product-planner
+                    │              │ → plan.md
+                    └──────┬───────┘
+                           │
+                    ┌──────▼───────┐     rejected (max 4 rounds)
+                    │  REVIEW PLAN │ tech-leader ──────────────┐
+                    │              │                            │
+                    └──────┬───────┘                            │
+                           │ approved          ┌───────────────┘
+                           │                   │ (revise plan.md)
+                    ┌──────▼───────┐           │
+                    │ ARCHITECTURE │ architect  │
+                    │              │ → spec.md  │
+                    └──────┬───────┘           │
+                           │                   │
+                    ┌──────▼───────┐     rejected (max 4 rounds)
+                    │  REVIEW SPEC │ tech-leader ──────────────┐
+                    │              │                            │
+                    └──────┬───────┘                            │
+                           │ approved          ┌───────────────┘
+                           │                   │ (revise spec.md)
+                    ┌──────▼───────┐
+                    │  REFINEMENT  │ tech-leader
+                    │              │ → brainstorm-refined.md
+                    └──────┬───────┘
+                           │
+                    ┌──────▼───────┐
+                    │ TASK PLANNING│ project-manager
+                    │              │ → tasks.md
+                    └──────┬───────┘
+                           │
+                    ┌──────▼───────┐
+                    │EXECUTE TASKS │ project-manager
+                    │  [PARALLEL]  │ spawns N developer agents
+                    │              │ (isolated git worktrees)
+                    └──────┬───────┘
+                           │
+                    ┌──────▼───────┐     rejected
+                    │ CODE REVIEW  │ code-reviewer ────────────┐
+                    │              │                            │
+                    └──────┬───────┘                            │
+                           │ approved          ┌───────────────┘
+                           │                   │ (re-execute tasks)
+                    ┌──────▼───────┐
+                    │PERF ANALYSIS │ perf-analyzer
+                    │              │ → perf-report.md
+                    └──────┬───────┘
+                           │
+                    ┌──────▼───────┐
+                    │ UNIT TESTING │ unit-tester
+                    │              │ → test-report-unit.md
+                    └──────┬───────┘
+                           │ passed                    failed
+                    ┌──────▼───────┐            ┌──────▼───────┐
+                    │  QA TESTING  │ qa-tester   │  BUG FIXING  │
+                    │              │             │              │→ back to
+                    └──────┬───────┘             └──────────────┘  code-review
+                           │ passed
+                    ┌──────▼───────┐
+                    │  DOCS UPDATE │ docs-writer
+                    │              │ → changelog-entry.md
+                    └──────┬───────┘
+                           │
+                    ┌──────▼───────┐
+                    │  CREATE PR   │ tech-leader
+                    │              │ → GitHub/Bitbucket PR
+                    └──────┬───────┘
+                           │
+                    ┌──────▼───────┐
+                    │  POST-MORTEM │ tech-leader
+                    │              │ → post-mortem.md + metrics
+                    └──────┬───────┘
+                           │
+                        ✅ DONE (+ notify)
+```
+
+### Workflow Variants
+
+NLoop selects the workflow automatically based on ticket tags. Each variant removes unnecessary phases:
+
+**Bugfix** — no planning, no architecture, no perf analysis:
+```
+BRAINSTORM → TASK PLANNING → EXECUTE → CODE REVIEW → UNIT TEST → QA → DOCS → PR → POST-MORTEM
+```
+
+**Hotfix** — minimal path, 1 review round max:
+```
+BRAINSTORM → EXECUTE → CODE REVIEW → UNIT TEST → DOCS → PR → POST-MORTEM
+```
+
+**Refactor** — full planning, perf analysis, but no QA:
+```
+BRAINSTORM → PLAN → REVIEW → ARCHITECTURE → REVIEW → TASK PLANNING → EXECUTE → CODE REVIEW → PERF → UNIT TEST → DOCS → PR → POST-MORTEM
+```
+
+### Agent Communication via Artifacts
+
+Agents never share memory or context. They communicate exclusively through files:
+
+```
+brainstorm.md ──→ product-planner reads it → plan.md
+plan.md       ──→ architect reads it       → spec.md
+spec.md       ──→ project-manager reads it → tasks.md
+tasks.md      ──→ developers read them     → code changes
+code changes  ──→ code-reviewer reads them → approval/rejection
+test results  ──→ tech-leader reads them   → bug fix tasks
+all artifacts ──→ docs-writer reads them   → changelog + docs
+all artifacts ──→ tech-leader reads them   → post-mortem.md
+```
+
+Each agent receives **only the artifacts it needs** (defined in `consumes` in the workflow YAML), keeping context focused and token-efficient.
+
+### The 10 Agents
+
+| Agent | Role | Model | Key Actions |
+|-------|------|-------|-------------|
+| **Tech Leader** | Central orchestrator, quality gatekeeper | opus | brainstorm, review, dispatch-fixes, create-pr, post-mortem |
+| **Product Planner** | Decomposes ideas into actionable plans | sonnet | create-plan |
+| **Architect** | Designs technical specifications | opus | create-spec |
+| **Project Manager** | Breaks specs into EPICs/tasks, dispatches work | sonnet | create-tasks, dispatch-tasks |
+| **Developer** | Implements individual tasks in isolated worktrees | sonnet | implement-task |
+| **Code Reviewer** | Reviews code quality, security, patterns | sonnet | review-code |
+| **Perf Analyzer** | Detects performance regressions and anti-patterns | sonnet | analyze-perf |
+| **Unit Tester** | Runs/writes unit and integration tests | sonnet | run-tests |
+| **QA Tester** | Visual/E2E testing via Chrome browser automation | sonnet | visual-test |
+| **Docs Writer** | Generates changelog, updates project docs | sonnet | update-docs |
+
+Each agent is a `.md` file in `.nloop/agents/` with:
+- **Frontmatter**: model, tools, actions, timeout, skip conditions
+- **Body**: system prompt with instructions, constraints, output format, and examples
+
+Agents are fully customizable — edit the `.md` file to change behavior, model, or output format.
 
 ### Workflow Selection by Ticket Type
 
