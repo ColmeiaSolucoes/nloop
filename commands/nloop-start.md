@@ -308,9 +308,43 @@ Append to `.nloop/features/{TICKET_ID}/logs/events.jsonl`:
 
 ### 3.11: Display Progress
 
-After each node completion, display:
+Display a progress update **every time an agent changes or a task completes**. This keeps the user informed without requiring interaction.
+
+#### On node transition (agent change):
+
 ```
-[NLoop] {TICKET_ID} | {previous_node} -> {condition or "->"} -> {new_node} | Review rounds: {rounds if applicable}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[NLoop] {TICKET_ID} — Progress: {completed_nodes}/{total_nodes} ({percent}%)
+  ✅ {previous_node} ({agent}) → {status} {duration}
+  🔄 Next: {new_node} ({next_agent})
+  {Review: plan {n}/4, spec {n}/4, code {n}/4 — only if any > 0}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+#### On individual task completion (during execute-tasks):
+
+```
+[NLoop] {TICKET_ID} — Task {n}/{total}: ✅ {task_title} ({duration}) | Developer agent done
+```
+
+#### On review decision:
+
+```
+[NLoop] {TICKET_ID} — Review: {target} → {APPROVED|REJECTED} (round {n}/{max})
+{If REJECTED: "  Feedback: {1-line summary of main issue}"}
+```
+
+#### On test result:
+
+```
+[NLoop] {TICKET_ID} — Tests: {PASSED|FAILED} | {n} tests, {n} failures
+{If FAILED: "  Failures: {list of failing test names, max 3}"}
+```
+
+#### On skip:
+
+```
+[NLoop] {TICKET_ID} — ⏭️ Skipping {node_name}: {reason}
 ```
 
 ### 3.12: Continue Loop
