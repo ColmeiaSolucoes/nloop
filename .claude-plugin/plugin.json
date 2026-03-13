@@ -3,8 +3,8 @@
   "description": "Multi-agent orchestration system for the full software development lifecycle — from ticket intake through planning, architecture, implementation, code review, testing, and PR creation.",
   "version": "1.1.0",
   "author": {
-    "name": "Colmeia Solucoes",
-    "email": "dev@colmeia.com.br"
+    "name": "Nectar Team",
+    "email": "developers@nectarcrm.com"
   },
   "homepage": "https://github.com/ColmeiaSolucoes/nloop",
   "repository": "https://github.com/ColmeiaSolucoes/nloop",
