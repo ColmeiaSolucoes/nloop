@@ -4,6 +4,13 @@ All notable changes to NLoop will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.2.0] — 2026-03-13
+
+### Added
+- `/nloop-exec` command — run pipelines from local `.md` files with YAML frontmatter, skip options, and workflow override (no YouTrack needed)
+- `exec` trigger type in state schema for traceability
+- `source_file` field in feature state — tracks the original `.md` file path
+
 ## [1.1.0] — 2026-03-13
 
 ### Added

@@ -12,6 +12,7 @@
   "current_node": "brainstorm",
   "status": "in_progress",
   "trigger": "manual",
+  "source_file": null,
   "started_at": "{{TIMESTAMP}}",
   "updated_at": "{{TIMESTAMP}}",
   "completed_at": null,

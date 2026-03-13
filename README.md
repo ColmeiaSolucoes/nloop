@@ -108,6 +108,15 @@ After `/nloop-init`, compare and merge your customizations back.
 # Poll YouTrack for new tickets
 /nloop-poll
 
+# Run pipeline from a markdown file (no YouTrack needed)
+/nloop-exec docs/features/dark-mode.md
+
+# Run multiple files sequentially
+/nloop-exec backlog/PROJ-42.md backlog/PROJ-43.md --sequential
+
+# Preview what would run without executing
+/nloop-exec backlog/*.md --dry
+
 # Auto-poll every 30 minutes
 /loop 30m /nloop-poll
 ```
@@ -665,6 +674,7 @@ Create new workflows in `.nloop/workflows/` or edit existing ones. Each workflow
 | `/nloop-watch TICKET-ID` | Live progress dashboard for a running feature |
 | `/nloop-report` | Aggregated analytics — velocity, quality, trends |
 | `/nloop-config [section]` | Interactive setup wizard for polling, git, notifications |
+| `/nloop-exec path/to/file.md` | Run pipeline from local markdown file(s) |
 | `/nloop-poll` | Poll YouTrack for new tickets |
 
 ### `/nloop-dryrun` — Pipeline Simulation
@@ -873,6 +883,60 @@ Generate reports across all completed features with velocity trends, quality met
 - **Phase Timing**: average duration per phase, bottleneck detection, trend arrows
 - **Agent Performance**: rejections by agent, review efficiency, bug attribution
 - **Recommendations**: AI-generated actionable suggestions based on data patterns (e.g., "Plan rejection rate is 40% — consider more detailed brainstorming")
+
+### `/nloop-exec` — Run Pipeline from Markdown Files
+
+Run NLoop pipelines using local `.md` files instead of YouTrack tickets. Each file becomes a feature — no YouTrack integration required.
+
+**Syntax:**
+
+```bash
+/nloop-exec path/to/feature.md
+/nloop-exec backlog/PROJ-42.md backlog/PROJ-43.md --sequential
+/nloop-exec backlog/*.md --dry
+/nloop-exec path/to/feature.md --workflow bugfix
+```
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--workflow name` | Force a specific workflow for all files |
+| `--sequential` | Run files one at a time (default: all start immediately) |
+| `--dry` | Preview execution plan without running |
+
+**Markdown file format:**
+
+```markdown
+---
+ticket: PROJ-42
+title: Add notification preferences
+workflow: default
+tags: [feature, frontend]
+skip_brainstorm: false
+skip_planning: false
+skip_to: null
+---
+
+# Feature description here...
+
+## Requirements
+- Requirement 1
+- Requirement 2
+```
+
+All frontmatter fields are optional. If `ticket` is omitted, it's derived from the filename (`dark-mode.md` → `DARK-MODE`). If `title` is omitted, the first `# Heading` is used.
+
+**Skip options** for when you already have artifacts ready:
+
+| Option | Effect |
+|--------|--------|
+| `skip_brainstorm: true` | File content becomes `brainstorm.md`, starts at plan |
+| `skip_planning: true` | File content becomes `plan.md`, skips brainstorm + plan + review |
+| `skip_to: task-planning` | File content becomes `spec.md`, jumps to task planning |
+| `skip_to: execute-tasks` | File content becomes `tasks.md`, jumps to execution |
+
+The original `.md` file is always copied to `features/{TICKET_ID}/source.md` for traceability.
 
 ## Requirements
 

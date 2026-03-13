@@ -57,8 +57,12 @@
     },
     "trigger": {
       "type": "string",
-      "enum": ["manual", "poll_auto", "poll_approved"],
+      "enum": ["manual", "poll_auto", "poll_approved", "exec"],
       "description": "How this feature was triggered"
+    },
+    "source_file": {
+      "type": ["string", "null"],
+      "description": "Path to the original .md file (for exec trigger)"
     },
     "started_at": {
       "type": "string",

@@ -126,7 +126,8 @@ NLoop initialized successfully!
   Agents:    .nloop/agents/ (10 agents)
 
   Quick Start:
-    /nloop-start TICKET-ID     Start a feature
+    /nloop-start TICKET-ID     Start a feature from YouTrack
+    /nloop-exec feature.md     Start a feature from a .md file
     /nloop-resume TICKET-ID    Resume a paused feature
     /nloop-abort TICKET-ID     Abort a running pipeline
     /nloop-status              View dashboard
