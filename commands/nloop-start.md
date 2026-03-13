@@ -90,13 +90,55 @@ node = workflow.nodes[state.current_node]
    - Display: `[NLoop] Skipping {node_name}: {reason}`
    - Continue to next node (skip agent spawn)
 
-### 3.2: Load Agent Definition
+### 3.2: Check if Node is Interactive (inline)
+
+Some nodes require **user interaction** and cannot be delegated to a background agent. These nodes run **inline** in the main conversation context.
+
+A node is interactive if:
+- The node has `inline: true` in the workflow YAML, OR
+- The node's `action` is `brainstorm` or `brainstorm-refinement`
+
+**If the node IS interactive (inline):**
+
+Execute the node directly in the current conversation — do NOT spawn a sub-agent.
+
+#### For `brainstorm` action:
+1. Display: `[NLoop] Starting interactive brainstorm for {TICKET_ID}`
+2. Invoke the `/brainstorming` skill to explore the idea collaboratively with the user:
+   - Share the ticket description and any existing context
+   - Follow the brainstorming process: ask questions **one at a time**, preferring multiple choice
+   - Explore 2-3 approaches with trade-offs
+   - Present design incrementally (200-300 word sections), validating each part
+3. When brainstorming is complete, write the agreed design to `features/{TICKET_ID}/brainstorm.md` using the brainstorm output format (see tech-leader agent definition)
+4. Log event: `node_completed` with status `completed`
+5. Proceed to next edge (unconditional)
+
+#### For `brainstorm-refinement` action:
+1. Display: `[NLoop] Starting refinement brainstorm for {TICKET_ID}`
+2. Read the approved `plan.md` and `spec.md`
+3. Present a summary of the plan and spec to the user
+4. Invoke the `/brainstorming` skill to validate and refine:
+   - Focus on gaps, conflicts, or inconsistencies between plan and spec
+   - Ask the user about any open questions or concerns
+   - Validate the spec is detailed enough for developers
+5. Write the refinement to `features/{TICKET_ID}/brainstorm-refined.md`
+6. Log event and proceed
+
+#### For other `inline: true` nodes:
+1. Read the agent definition and follow its instructions directly in conversation
+2. Interact with the user as needed (ask questions, show progress, get approval)
+3. Write the output artifact when done
+4. Log event and proceed
+
+**If the node is NOT interactive, continue to step 3.3 (spawn agent).**
+
+### 3.3: Load Agent Definition
 ```
 Read the file: .nloop/agents/{node.agent}.md
 Parse the frontmatter to get: tools, model, mode, max_review_rounds
 ```
 
-### 3.3: Build Agent Prompt
+### 3.4: Build Agent Prompt
 
 Construct the prompt for the agent by combining:
 
@@ -127,7 +169,7 @@ You are performing the "{node.action}" action for ticket {state.ticket_id}.
 {Full agent system prompt from the .md file body (everything after the frontmatter)}
 ```
 
-### 3.4: Spawn Agent
+### 3.5: Spawn Agent
 
 Use the Claude Code Agent tool:
 ```
@@ -152,7 +194,7 @@ When `node.parallel == true` and `node.action == "dispatch-tasks"`:
 6. If more groups remain, repeat
 7. When all tasks are done, proceed to next edge
 
-### 3.5: Process Agent Output
+### 3.6: Process Agent Output
 
 1. Parse the agent's response for:
    - **Decision** (for review nodes): look for `### Decision: APPROVED` or `### Decision: REJECTED`
@@ -165,7 +207,7 @@ When `node.parallel == true` and `node.action == "dispatch-tasks"`:
    - `failed` -> if Result is FAILED
    - `null` -> unconditional (no decision/result in output)
 
-### 3.6: Handle Review Rounds
+### 3.7: Handle Review Rounds
 
 If the current node is a review node (has `target` field):
 1. Read the current round count: `state.review_rounds[node.target]`
@@ -175,7 +217,7 @@ If the current node is a review node (has `target` field):
    - If rounds exceeded: override condition to `max_rounds_exceeded`
 3. Save the review artifact to `.nloop/features/{TICKET_ID}/reviews/{target}-review-{round}.md`
 
-### 3.7: Resolve Next Edge
+### 3.8: Resolve Next Edge
 
 1. Find all edges where `edge.from == state.current_node`
 2. If condition is not null:
@@ -220,7 +262,7 @@ The review loop is the most critical mechanism in NLoop. Here's exactly how it w
 2. Status changes to `escalated`
 3. Pipeline pauses — user must `/nloop-resume` after resolving
 
-### 3.8: Update State
+### 3.9: Update State
 
 1. Add history entry:
    ```json
@@ -240,7 +282,7 @@ The review loop is the most critical mechanism in NLoop. Here's exactly how it w
 2. Update `state.updated_at` to current timestamp
 3. Write state.json completely (overwrite)
 
-### 3.9: Log Event
+### 3.10: Log Event
 
 Append to `.nloop/features/{TICKET_ID}/logs/events.jsonl`:
 ```json
@@ -248,14 +290,14 @@ Append to `.nloop/features/{TICKET_ID}/logs/events.jsonl`:
 {"ts":"{now}","event":"edge_traversed","from":"{previous_node}","to":"{new_node}","condition":"{condition}"}
 ```
 
-### 3.10: Display Progress
+### 3.11: Display Progress
 
 After each node completion, display:
 ```
 [NLoop] {TICKET_ID} | {previous_node} -> {condition or "->"} -> {new_node} | Review rounds: {rounds if applicable}
 ```
 
-### 3.11: Continue Loop
+### 3.12: Continue Loop
 
 Go back to Step 3.1 with the new `current_node`.
 

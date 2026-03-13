@@ -10,7 +10,8 @@ nodes:
   brainstorm:
     agent: tech-leader
     action: brainstorm
-    description: Analyze the bug — root cause, affected area, fix strategy
+    inline: true
+    description: Interactive brainstorm — analyze the bug with the user
     produces: brainstorm.md
 
   task-planning:

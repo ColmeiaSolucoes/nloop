@@ -10,7 +10,8 @@ nodes:
   brainstorm:
     agent: tech-leader
     action: brainstorm
-    description: Triage and brainstorm the ticket
+    inline: true
+    description: Interactive brainstorm with the user (runs /brainstorming skill)
     produces: brainstorm.md
 
   plan:
@@ -45,7 +46,8 @@ nodes:
   brainstorm-refinement:
     agent: tech-leader
     action: brainstorm-refinement
-    description: Final brainstorm with plan and spec before task breakdown
+    inline: true
+    description: Interactive refinement with the user — validate plan + spec before task breakdown
     produces: brainstorm-refined.md
     consumes:
       - plan.md
