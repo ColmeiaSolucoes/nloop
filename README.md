@@ -35,6 +35,40 @@ claude plugin install nloop
 
 Then run `/nloop-init` in Claude Code.
 
+### Updating
+
+NLoop has two layers: **plugin** (global commands) and **project files** (agents, workflows, config in `.nloop/`). Update them separately:
+
+```bash
+# 1. Update the plugin (global commands)
+claude plugin update nloop
+# Restart Claude Code to apply
+
+# 2. Update project files (agents, workflows, engine)
+# Open Claude Code in your project directory and run:
+/nloop-init
+```
+
+**What gets updated vs preserved:**
+
+| Layer | Updated by | Overwrites? |
+|-------|-----------|-------------|
+| Commands (`/nloop-start`, etc.) | `claude plugin update nloop` | Yes — always latest |
+| Agents (`.nloop/agents/`) | `/nloop-init` | Yes — replaces with latest |
+| Workflows (`.nloop/workflows/`) | `/nloop-init` | Yes — replaces with latest |
+| Engine (`.nloop/engine/`) | `/nloop-init` | Yes — replaces with latest |
+| Config (`.nloop/config/nloop.yaml`) | `/nloop-init` | **No** — preserves existing |
+| Triggers (`.nloop/config/triggers.yaml`) | `/nloop-init` | **No** — preserves existing |
+| Features (`.nloop/features/`) | Never | **No** — runtime data, never touched |
+
+If you customized an agent or workflow and want to keep your version, back it up before running `/nloop-init`:
+
+```bash
+cp .nloop/agents/tech-leader.md .nloop/agents/tech-leader.md.bak
+```
+
+After `/nloop-init`, compare and merge your customizations back.
+
 ## Quick Start
 
 ```bash

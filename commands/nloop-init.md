@@ -38,15 +38,18 @@ mkdir -p .nloop/{agents,config,workflows,engine/templates,features}
 
 Copy all files from the plugin's `project-template/` directory to `.nloop/`:
 
+### Always updated (safe to overwrite — no user customizations expected):
 - `project-template/agents/*.md` → `.nloop/agents/`
-- `project-template/config/nloop.yaml` → `.nloop/config/nloop.yaml` (only if not exists)
-- `project-template/config/triggers.yaml` → `.nloop/config/triggers.yaml` (only if not exists)
-- `project-template/workflows/default.yaml` → `.nloop/workflows/default.yaml` (only if not exists)
+- `project-template/workflows/*.yaml` → `.nloop/workflows/`
 - `project-template/engine/state-schema.json` → `.nloop/engine/state-schema.json`
 - `project-template/engine/templates/*` → `.nloop/engine/templates/`
 - `project-template/.gitignore` → `.nloop/.gitignore`
 
-**Important**: Config files (nloop.yaml, triggers.yaml, default.yaml) should NOT be overwritten if they already exist — the user may have customized them. Agent and engine files should always be updated to the latest version.
+### Preserved (only created if not exists — user may have customized):
+- `project-template/config/nloop.yaml` → `.nloop/config/nloop.yaml` (only if not exists)
+- `project-template/config/triggers.yaml` → `.nloop/config/triggers.yaml` (only if not exists)
+
+**Important**: Config files (nloop.yaml, triggers.yaml) are NEVER overwritten — the user's polling filters, git platform, notification settings, and trigger rules must be preserved. Agents, workflows, and engine files are always replaced with the latest version from the plugin.
 
 ## Step 5: Configure Bitbucket (Interactive)
 
@@ -120,7 +123,7 @@ NLoop initialized successfully!
   Project:   {current directory}
   Config:    .nloop/config/nloop.yaml
   Workflow:  .nloop/workflows/default.yaml
-  Agents:    .nloop/agents/ (8 agents)
+  Agents:    .nloop/agents/ (10 agents)
 
   Quick Start:
     /nloop-start TICKET-ID     Start a feature
