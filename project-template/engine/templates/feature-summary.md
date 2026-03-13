@@ -26,6 +26,8 @@
 - [ ] changelog-entry.md
 - [ ] help-article.md
 - [ ] post-mortem.md
+- [ ] execution-report.md
+- [ ] execution-report.html
 
 ## Review History
 <!-- Auto-updated: review rounds and decisions -->

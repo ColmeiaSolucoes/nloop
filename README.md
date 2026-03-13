@@ -351,6 +351,24 @@ Every completed feature generates a post-mortem with:
 - First-pass code review rate
 - Lessons learned and recommendations
 
+### Execution Report
+
+After every pipeline, NLoop automatically generates a **comprehensive execution report** in both Markdown and HTML:
+
+- `execution-report.md` — Full narrative of the pipeline journey
+- `execution-report.html` — Standalone HTML file with embedded CSS, ready to open in any browser
+
+The report includes:
+- **Executive summary** — what was built, key decisions, outcome quality
+- **Chronological timeline** — every event with timestamps and durations
+- **Phase-by-phase detail** — what each agent did, review history, decisions made
+- **Agent performance** — invocations, time spent, model used per agent
+- **Metrics dashboard** — review rounds, bug density, parallel efficiency
+- **Artifacts inventory** — all files produced with line counts
+- **Lessons & recommendations** — from the post-mortem
+
+The HTML version features a professional layout with collapsible sections, color-coded status badges, timeline visualization, responsive grid metrics, and print-friendly styles.
+
 View aggregated metrics across all features:
 
 ```bash

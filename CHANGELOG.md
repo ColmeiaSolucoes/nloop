@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 - `/nloop-exec` command — run pipelines from local `.md` files with YAML frontmatter, skip options, and workflow override (no YouTrack needed)
+- Execution report generation (`execution-report.md` + `execution-report.html`) — comprehensive pipeline report with timeline, agent performance, metrics dashboard, and phase-by-phase details
+- HTML report is standalone with embedded CSS — professional layout, collapsible sections, color-coded badges, print-friendly
 - `exec` trigger type in state schema for traceability
 - `source_file` field in feature state — tracks the original `.md` file path
 

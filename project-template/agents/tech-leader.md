@@ -27,6 +27,7 @@ actions:
   - dispatch-fixes
   - create-pr
   - post-mortem
+  - generate-execution-report
 
 max_review_rounds: 4
 timeout: 30m
@@ -50,6 +51,8 @@ produces:
   - brainstorm-refined.md
   - reviews/*.md
   - post-mortem.md
+  - execution-report.md
+  - execution-report.html
 
 consumes:
   - plan.md
@@ -441,6 +444,268 @@ This runs at the end of every feature. Your job is to generate a structured post
 
 ## Recommendations
 - {actionable recommendation for improving the process}
+</output_format>
+
+---
+
+## Action: generate-execution-report
+
+<instructions>
+When assigned the `generate-execution-report` action:
+
+This runs as an `also_runs` after the post-mortem. Generate a comprehensive, detailed execution report that documents the entire pipeline journey — every phase, every agent interaction, every decision. The report is produced in both **Markdown** and **standalone HTML** formats.
+
+1. **Read ALL artifacts** in the feature directory (`features/{TICKET_ID}/`):
+   - `state.json` — timeline, status, review rounds, tasks, metrics, trigger
+   - `logs/events.jsonl` — chronological event log with timestamps
+   - `brainstorm.md` — initial brainstorm output
+   - `plan.md` — product plan (if exists)
+   - `spec.md` — technical spec (if exists)
+   - `brainstorm-refined.md` — refinement (if exists)
+   - `tasks.md` — task breakdown and progress
+   - `reviews/*.md` — all review artifacts with feedback
+   - `test-report-unit.md` — unit test results (if exists)
+   - `test-report-qa.md` — QA test results (if exists)
+   - `perf-report.md` — performance analysis (if exists)
+   - `docs-update.md` — documentation changes (if exists)
+   - `post-mortem.md` — post-mortem metrics
+   - `source.md` — original source file (if exec trigger)
+
+2. **Calculate detailed timeline** from events.jsonl:
+   - Start/end timestamp for each phase
+   - Duration per phase in human-readable format (e.g., "5m 42s")
+   - Total pipeline duration
+   - Time between phases (idle/transition time)
+
+3. **Write `execution-report.md`** to `features/{TICKET_ID}/execution-report.md`
+
+4. **Write `execution-report.html`** to `features/{TICKET_ID}/execution-report.html`
+   - Standalone HTML with all CSS embedded inline (no external dependencies)
+   - Professional, clean design with a light color scheme
+   - Responsive layout that works on desktop and mobile
+   - Collapsible sections for long content (use `<details>/<summary>`)
+   - Color-coded status badges (green=approved/passed, red=rejected/failed, yellow=warning, gray=skipped)
+   - Timeline visualization using CSS (vertical timeline with dots and lines)
+   - Metrics cards in a grid layout
+   - Syntax-highlighted code blocks using inline CSS
+
+**Important**: The HTML file must be completely self-contained — openable in any browser with zero dependencies.
+</instructions>
+
+<output_format>
+The **Markdown report** (`execution-report.md`) must follow this structure:
+
+```markdown
+# Execution Report: {Ticket Title}
+
+## Feature Summary
+| Field | Value |
+|-------|-------|
+| Ticket ID | {TICKET_ID} |
+| Title | {ticket_title} |
+| Workflow | {workflow_name} |
+| Trigger | {trigger type: manual/poll/exec} |
+| Source File | {source.md path or N/A} |
+| Started | {ISO timestamp} |
+| Completed | {ISO timestamp} |
+| Total Duration | {human readable} |
+| Final Status | {completed/escalated/failed} |
+| PR | {URL or N/A} |
+
+---
+
+## Executive Summary
+[2-3 paragraph narrative overview: what was built, key decisions, outcome quality, notable events]
+
+---
+
+## Pipeline Timeline
+
+### Chronological Event Log
+| Time | Event | Agent | Details | Duration |
+|------|-------|-------|---------|----------|
+| {HH:MM:SS} | Brainstorm started | tech-leader | Interactive brainstorm session | — |
+| {HH:MM:SS} | Brainstorm completed | tech-leader | brainstorm.md produced | 2m 15s |
+| {HH:MM:SS} | Plan started | product-planner | Creating product plan | — |
+| ... | ... | ... | ... | ... |
+
+---
+
+## Phase Details
+
+### Phase 1: Brainstorm
+- **Agent**: tech-leader
+- **Duration**: {time}
+- **Mode**: {interactive/autonomous}
+- **Output**: brainstorm.md
+
+#### Summary
+[What was explored, key questions raised, approach selected]
+
+#### Key Decisions
+[List the most important decisions made during brainstorming]
+
+---
+
+### Phase 2: Planning
+- **Agent**: product-planner
+- **Duration**: {time}
+- **Review Rounds**: {n}/{max}
+
+#### Plan Summary
+[What the plan covers, main sections]
+
+#### Review History
+| Round | Decision | Key Feedback |
+|-------|----------|--------------|
+| 1 | REJECTED | {main issue} |
+| 2 | APPROVED | {what was fixed} |
+
+---
+
+### Phase 3: Architecture
+- **Agent**: architect
+- **Duration**: {time}
+- **Review Rounds**: {n}/{max}
+
+#### Spec Summary
+[High-level technical decisions]
+
+#### Review History
+[Same format as planning]
+
+---
+
+### Phase 4: Refinement
+[If applicable]
+
+---
+
+### Phase 5: Task Planning
+- **Agent**: project-manager
+- **Total Tasks**: {n}
+- **Task Groups**: {n} (parallel batches)
+
+#### Task Breakdown
+| # | Task | Status | Duration | Agent |
+|---|------|--------|----------|-------|
+| 1 | {title} | completed | {time} | developer-1 |
+| 2 | {title} | completed | {time} | developer-2 |
+| ... | ... | ... | ... | ... |
+
+---
+
+### Phase 6: Implementation
+- **Duration**: {total time}
+- **Parallel Agents**: {n}
+- **Worktrees Used**: {n}
+- **Merge Conflicts**: {n}
+
+#### Implementation Notes
+[How the implementation went — any issues, retries, conflicts]
+
+---
+
+### Phase 7: Code Review
+- **Agent**: code-reviewer
+- **Duration**: {time}
+- **Rounds**: {n}
+- **First-Pass Approval**: {yes/no}
+
+#### Review Summary
+[What the reviewer found, approval/rejection history]
+
+---
+
+### Phase 8: Testing
+- **Unit Tests**: {PASSED/FAILED} ({n} tests, {n} failures)
+- **QA Tests**: {PASSED/FAILED/SKIPPED} ({n} scenarios)
+- **Bugs Found**: {n}
+- **Bugs Fixed**: {n}
+
+#### Test Results Detail
+[Breakdown of test categories and results]
+
+---
+
+### Phase 9: Performance Analysis
+[If applicable]
+- **Agent**: perf-analyzer
+- **Findings**: {n} critical, {n} warning, {n} info
+
+---
+
+### Phase 10: Documentation
+- **Agent**: docs-writer
+- **Changelog**: {updated/skipped}
+- **Help Article**: {generated/skipped}
+
+---
+
+### Phase 11: PR Creation
+- **Platform**: {GitHub/Bitbucket}
+- **Branch**: {branch_name}
+- **PR URL**: {url}
+- **Reviewers**: {list}
+
+---
+
+## Agent Performance
+
+| Agent | Invocations | Total Time | Model | Actions |
+|-------|-------------|------------|-------|---------|
+| tech-leader | {n} | {time} | opus | brainstorm, review x{n}, post-mortem |
+| product-planner | {n} | {time} | sonnet | create-plan |
+| architect | {n} | {time} | opus | create-spec |
+| project-manager | {n} | {time} | sonnet | create-tasks, dispatch |
+| developer | {n} | {time} | sonnet | implement-task x{n} |
+| code-reviewer | {n} | {time} | sonnet | review-code |
+| ... | ... | ... | ... | ... |
+
+## Metrics Dashboard
+
+| Metric | Value | Assessment |
+|--------|-------|------------|
+| Total Duration | {time} | {fast/normal/slow} |
+| Review Rounds (Plan) | {n}/{max} | {first-pass/needed-revision} |
+| Review Rounds (Spec) | {n}/{max} | {first-pass/needed-revision} |
+| Review Rounds (Code) | {n}/{max} | {first-pass/needed-revision} |
+| Bug Density | {bugs/task} | {low/medium/high} |
+| First-Pass Code Review | {yes/no} | {excellent/needs-improvement} |
+| Parallel Efficiency | {n} agents | {utilized/underutilized} |
+| Escalations | {n} | {none/had-escalations} |
+
+## Artifacts Produced
+
+| Artifact | File | Size | Status |
+|----------|------|------|--------|
+| Brainstorm | brainstorm.md | {lines} lines | produced |
+| Plan | plan.md | {lines} lines | produced |
+| Spec | spec.md | {lines} lines | produced |
+| Tasks | tasks.md | {lines} lines | produced |
+| Unit Tests Report | test-report-unit.md | {lines} lines | produced |
+| QA Report | test-report-qa.md | — | skipped |
+| Perf Report | perf-report.md | {lines} lines | produced |
+| Docs Update | docs-update.md | {lines} lines | produced |
+| Post-Mortem | post-mortem.md | {lines} lines | produced |
+
+## Lessons & Recommendations
+[From post-mortem.md — key takeaways]
+```
+
+The **HTML report** (`execution-report.html`) must contain the same content rendered as a beautiful, professional single-page document with:
+
+- Header banner with ticket ID, title, status badge, and duration
+- Navigation sidebar with links to each section
+- Metric cards in a responsive grid (2-3 columns)
+- Timeline visualization with color-coded events
+- Collapsible phase details using `<details>/<summary>`
+- Tables with alternating row colors
+- Status badges: `<span>` with background colors (green/red/yellow/gray)
+- Footer with generation timestamp
+- All CSS embedded in `<style>` tags — no external references
+- Use system fonts: `-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`
+- Print-friendly (add `@media print` styles)
 </output_format>
 
 ---

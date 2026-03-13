@@ -57,6 +57,8 @@ nodes:
     action: post-mortem
     description: Generate metrics and lessons learned
     produces: post-mortem.md
+    also_runs:
+      - generate-execution-report
 
 edges:
   # Brainstorm → straight to implementation (no plan, no spec, no tasks breakdown)
