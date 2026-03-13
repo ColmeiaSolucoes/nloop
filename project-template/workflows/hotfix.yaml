@@ -10,8 +10,7 @@ nodes:
   brainstorm:
     agent: tech-leader
     action: brainstorm
-    inline: true
-    description: Interactive brainstorm — quick root cause analysis with the user
+    description: Quick root cause analysis and fix strategy
     produces: brainstorm.md
 
   execute-tasks:
