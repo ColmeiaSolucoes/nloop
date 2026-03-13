@@ -92,7 +92,7 @@ nodes:
   docs-update:
     agent: docs-writer
     action: update-docs
-    description: Update docs and changelog for refactoring changes
+    description: Update changelog for refactoring (no help article — internal change)
     produces: docs-update.md
     consumes:
       - plan.md

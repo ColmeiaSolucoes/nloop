@@ -145,6 +145,33 @@ changelog:
   # Format: keepachangelog | conventional | simple
   format: "keepachangelog"
 
+# ─── Help Center ────────────────────────────────────────────
+# Auto-generate customer-facing help articles for new features.
+# Articles are written in the configured language and saved as
+# markdown files ready for your help center platform.
+help_center:
+  enabled: true
+  # Where to save generated articles (relative to project root)
+  output_dir: "docs/help"
+  # Language for articles: pt-BR | en | es | etc.
+  language: "pt-BR"
+  # Tone: friendly | formal | technical
+  tone: "friendly"
+  # Default categories (used for organizing articles)
+  categories:
+    - "Primeiros Passos"
+    - "Funcionalidades"
+    - "Configuracoes"
+    - "Integrações"
+    - "FAQ"
+    - "API"
+  # Article status on creation: draft | published
+  default_status: "draft"
+  # Generate articles only for features with these tags (empty = all features)
+  only_tags: []
+  # Skip article generation for these tags
+  skip_tags: ["refactor", "tech-debt", "backend-only", "no-docs"]
+
 # ─── Skip Conditions ─────────────────────────────────────────
 # Global skip conditions applied to all workflows.
 # These supplement per-node skip_if in workflow YAML.

@@ -59,8 +59,10 @@ nodes:
   docs-update:
     agent: docs-writer
     action: update-docs
-    description: Generate changelog entry for the bug fix
+    description: Generate changelog and update help articles if UX changed
     produces: docs-update.md
+    also_runs:
+      - generate-help-article
     consumes:
       - brainstorm.md
       - tasks.md

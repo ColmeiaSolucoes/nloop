@@ -115,12 +115,15 @@ nodes:
   docs-update:
     agent: docs-writer
     action: update-docs
-    description: Generate changelog and update project documentation
+    description: Generate changelog, update docs, and create help center article
     produces: docs-update.md
+    also_runs:
+      - generate-help-article
     consumes:
       - plan.md
       - spec.md
       - tasks.md
+      - brainstorm.md
       - test-report-unit.md
     skip_if:
       - tag: no-docs

@@ -346,6 +346,38 @@ changelog:
 
 Skip docs with tag `no-docs`.
 
+### Help Center Articles
+
+For features with user-facing changes, the Docs Writer also generates **customer-facing help center articles** — step-by-step guides written for end users, ready to publish in your knowledge base (Intercom, Zendesk, Freshdesk, GitBook, Notion, etc.).
+
+Articles include:
+- Step-by-step instructions with numbered lists
+- Screenshot placeholders (`![description](screenshots/slug-step-1.png)`)
+- Tips & best practices
+- FAQ section
+- Related articles links
+- Frontmatter with title, slug, category, tags, and status
+
+Configure in `.nloop/config/nloop.yaml`:
+
+```yaml
+help_center:
+  enabled: true
+  output_dir: "docs/help"        # Where articles are saved
+  language: "pt-BR"              # Article language
+  tone: "friendly"               # friendly | formal | technical
+  categories:                    # Organize articles by category
+    - "Primeiros Passos"
+    - "Funcionalidades"
+    - "Configuracoes"
+    - "FAQ"
+    - "API"
+  default_status: "draft"        # draft | published
+  skip_tags: ["refactor", "tech-debt", "backend-only"]
+```
+
+Articles are generated as `draft` by default — review and add real screenshots before publishing. Refactors and backend-only changes skip article generation automatically.
+
 ### Notifications
 
 NLoop can send webhook notifications at key pipeline events to Slack, Discord, Teams, or any custom endpoint:

@@ -20,6 +20,7 @@ mode: acceptEdits
 
 actions:
   - update-docs
+  - generate-help-article
 
 timeout: 15m
 
@@ -33,6 +34,7 @@ sends_to:
 produces:
   - docs-update.md
   - changelog-entry.md
+  - help-article.md
 
 consumes:
   - plan.md
@@ -152,6 +154,211 @@ Write to `features/{TICKET_ID}/changelog-entry.md`:
 ### Removed
 - Removed feature description
 </output_format>
+
+---
+
+## Action: generate-help-article
+
+<instructions>
+When assigned the `generate-help-article` action:
+
+This action generates **customer-facing help center documentation** — written for end users, not developers. The goal is to produce articles ready to publish in a knowledge base, help center, or support portal (e.g., Intercom, Zendesk, Freshdesk, GitBook, Notion).
+
+1. **Understand the feature from the user's perspective**:
+   - Read `plan.md` → what problem does this solve for the user?
+   - Read `spec.md` → what are the user-facing touchpoints (screens, buttons, settings, API endpoints)?
+   - Read `tasks.md` → what was actually built?
+   - Read `brainstorm.md` → what was the original user need?
+
+2. **Determine the help center config**:
+   - Read `.nloop/config/nloop.yaml` → `help_center` section
+   - Get: output directory, language, tone, categories, template format
+
+3. **Decide which articles to generate** based on what changed:
+   - **New feature/screen** → "Getting Started with {Feature}" guide
+   - **New settings/config** → "How to configure {Feature}" guide
+   - **New API endpoint** → "API Reference: {Endpoint}" article
+   - **Changed behavior** → "What's new in {Feature}" update article
+   - **Bug fix affecting UX** → Update existing article or add FAQ entry
+   - **No user-facing change** → Skip article generation, write only a note in docs-update.md
+
+4. **Write articles** following the configured template:
+   - Save each article to `{help_center.output_dir}/{category}/{slug}.md`
+   - Also save a copy to `features/{TICKET_ID}/help-article.md` (for the PR)
+   - Use the configured `language` and `tone`
+   - Follow the project's existing help center style if articles already exist
+
+5. **Generate article metadata** (frontmatter) for help center platforms:
+   ```yaml
+   ---
+   title: "How to use Dark Mode"
+   slug: "dark-mode"
+   category: "Settings & Preferences"
+   tags: ["dark-mode", "theme", "appearance"]
+   status: draft
+   created_at: {today}
+   ticket: {TICKET_ID}
+   ---
+   ```
+
+6. **Update the help center index** (if it exists):
+   - Check for an index file (e.g., `docs/help/index.md`, `docs/help/sidebar.json`, `docs/help/_sidebar.md`)
+   - Add the new article to the appropriate category
+   - If no index exists, don't create one
+
+</instructions>
+
+<constraints>
+- Write for END USERS, not developers. Assume zero technical knowledge unless the help center is developer-facing.
+- Use simple, clear language. Short sentences. Active voice.
+- Include step-by-step instructions with numbered lists for "How to" articles.
+- Include screenshots placeholders: `![{description}](screenshots/{slug}-{step}.png)` — the QA tester or human can add real screenshots later.
+- Do NOT include internal implementation details, code snippets, or database schemas in user-facing articles.
+- For API reference articles (developer help center), DO include code snippets with request/response examples.
+- Articles must be self-contained — a user should understand the feature without reading other articles.
+- If the feature is backend-only with no user-facing impact, skip article generation entirely.
+- Respect the configured language (pt-BR, en, etc.) — write the ENTIRE article in that language.
+</constraints>
+
+<output_format>
+Write each article to `{help_center.output_dir}/{category}/{slug}.md`:
+
+```markdown
+---
+title: "{Article Title}"
+slug: "{url-friendly-slug}"
+category: "{Category Name}"
+tags: [{relevant, tags}]
+status: draft
+created_at: {YYYY-MM-DD}
+ticket: {TICKET_ID}
+---
+
+# {Article Title}
+
+{Brief 1-2 sentence intro explaining what this feature does and why it's useful.}
+
+## Before you begin
+
+{Prerequisites — what the user needs to have or know before following this guide. Remove this section if there are no prerequisites.}
+
+## Step-by-step guide
+
+### 1. {First step title}
+
+{Description of what to do.}
+
+![{Step description}](screenshots/{slug}-step-1.png)
+
+### 2. {Second step title}
+
+{Description of what to do.}
+
+### 3. {Third step title}
+
+{Description of what to do.}
+
+## Tips & best practices
+
+- {Tip 1}
+- {Tip 2}
+
+## Frequently asked questions
+
+**Q: {Common question}?**
+A: {Answer.}
+
+**Q: {Common question}?**
+A: {Answer.}
+
+## Related articles
+
+- [{Related article title}]({link})
+- [{Related article title}]({link})
+```
+</output_format>
+
+<output_format name="help-article-summary">
+Add to `features/{TICKET_ID}/docs-update.md`:
+
+### Help Center Articles
+| Article | Category | File | Status |
+|---------|----------|------|--------|
+| {Title} | {Category} | `{path}` | draft |
+
+### Screenshot Placeholders
+| Article | Step | Placeholder | Description |
+|---------|------|-------------|-------------|
+| {Title} | 1 | `screenshots/{slug}-step-1.png` | {What to capture} |
+</output_format>
+
+<examples>
+<example>
+<action>generate-help-article</action>
+<input>
+Feature: Add dark mode support (PROJ-42)
+Plan: Users want dark mode to reduce eye strain. Toggle in Settings > Appearance.
+Config: language: pt-BR, tone: friendly, output_dir: docs/help
+</input>
+<output>
+---
+title: "Como usar o Modo Escuro"
+slug: "modo-escuro"
+category: "Configuracoes"
+tags: ["modo-escuro", "tema", "aparencia"]
+status: draft
+created_at: 2026-03-13
+ticket: PROJ-42
+---
+
+# Como usar o Modo Escuro
+
+O Modo Escuro reduz o brilho da tela e facilita o uso do sistema em ambientes com pouca luz. Quando ativado, toda a interface muda para um tema com fundo escuro e texto claro.
+
+## Passo a passo
+
+### 1. Acesse as Configuracoes
+
+Clique no seu avatar no canto superior direito e selecione **Configuracoes**.
+
+![Menu de configuracoes](screenshots/modo-escuro-step-1.png)
+
+### 2. Encontre a secao Aparencia
+
+No menu lateral, clique em **Aparencia**.
+
+![Secao Aparencia](screenshots/modo-escuro-step-2.png)
+
+### 3. Ative o Modo Escuro
+
+Clique no botao de alternancia ao lado de **Modo Escuro** para ativar.
+
+![Ativando modo escuro](screenshots/modo-escuro-step-3.png)
+
+A mudanca e aplicada imediatamente. Nao e necessario salvar.
+
+## Dicas
+
+- O sistema pode detectar automaticamente a preferencia do seu sistema operacional. Se voce usa modo escuro no Windows/Mac, o sistema acompanha.
+- Suas preferencias sao salvas automaticamente e sincronizadas em todos os dispositivos.
+
+## Perguntas frequentes
+
+**P: O Modo Escuro afeta relatorios e exportacoes?**
+R: Nao. Relatorios e PDFs exportados sempre usam o tema claro para melhor legibilidade na impressao.
+
+**P: Posso usar Modo Escuro em apenas algumas paginas?**
+R: Nao. O Modo Escuro e aplicado em toda a interface. Nao e possivel configurar por pagina.
+
+## Artigos relacionados
+
+- [Personalizando seu perfil](personalizar-perfil)
+- [Configuracoes de acessibilidade](acessibilidade)
+</output>
+</example>
+</examples>
+
+---
 
 <examples>
 <example>
