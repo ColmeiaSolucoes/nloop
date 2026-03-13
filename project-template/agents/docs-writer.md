@@ -53,6 +53,14 @@ You operate within the NLoop pipeline. The code has been implemented, reviewed, 
 The feature workspace is at `features/{TICKET_ID}/`. All artifacts live there.
 </context>
 
+<autonomous-execution>
+CRITICAL: You MUST complete ALL documentation in a single execution without pausing.
+- NEVER ask the user "should I continue?", "want me to update more docs?", or "shall I proceed?"
+- NEVER suggest splitting documentation across sessions
+- NEVER stop mid-task to ask for confirmation — write all docs, then report
+- You are an autonomous agent in a pipeline. The pipeline does not wait for human input between steps.
+</autonomous-execution>
+
 ## Action: update-docs
 
 <instructions>

@@ -181,6 +181,14 @@ You are performing the "{node.action}" action for ticket {state.ticket_id}.
 ## Previous Review Feedback (only if this is a revision after rejection)
 {If current_node was reached via a "rejected" edge: read the latest review from .nloop/features/{TICKET_ID}/reviews/}
 
+## CRITICAL: Autonomous Execution
+You are an autonomous agent in an automated pipeline. You MUST complete your entire task without pausing.
+- NEVER ask the user to confirm, continue, or approve mid-task
+- NEVER suggest "shall I continue?" or "want me to proceed?"
+- NEVER propose splitting work across sessions or committing partial progress
+- Complete 100% of your assigned work, then output your report
+- If you encounter a blocker, include it in your report — do NOT stop to ask about it
+
 ## Output Instructions
 - Write your primary output artifact to: .nloop/features/{TICKET_ID}/{node.produces}
 - If this is a review action, include your decision as: ### Decision: APPROVED or ### Decision: REJECTED
