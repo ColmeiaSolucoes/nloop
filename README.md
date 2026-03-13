@@ -65,6 +65,9 @@ Then run `/nloop-init` in Claude Code.
 # Simulate before running
 /nloop-dryrun PROJ-42 --tags backend-only
 
+# Configure polling, git, notifications interactively
+/nloop-config polling
+
 # Poll YouTrack for new tickets
 /nloop-poll
 
@@ -589,9 +592,9 @@ If no flags are provided and YouTrack MCP is configured, NLoop will fetch real t
 ══════════════════════════════════════════════════════
 
 📋 Configuration Validation
-  ✅ nloop.yaml v2 — valid
+  ✅ nloop.yaml v3 — valid
   ✅ 4 workflows found: default, bugfix, hotfix, refactor
-  ✅ 7 agents defined
+  ✅ 10 agents defined
   ✅ Git platform: github (gh CLI)
 
 🎯 Workflow Selection
@@ -662,6 +665,57 @@ Real-time progress view for a running pipeline. Shows which node is executing, e
 
   Progress: 6/14 nodes (43%)
   ██████████░░░░░░░░░░░ 43%
+```
+
+### `/nloop-config` — Interactive Setup Wizard
+
+Configure NLoop settings interactively. Asks questions one at a time with multiple choice and writes changes to the YAML files.
+
+```bash
+/nloop-config                    # Show summary + ask what to configure
+/nloop-config polling            # Set up YouTrack polling filters
+/nloop-config git                # Set up GitHub or Bitbucket
+/nloop-config notifications      # Set up Slack/Discord/Teams webhooks
+/nloop-config models             # Choose model per agent role
+/nloop-config triggers           # Add/edit/remove trigger rules
+/nloop-config all                # Full guided setup
+```
+
+**Polling example:**
+
+```
+/nloop-config polling
+
+> Which YouTrack projects should NLoop monitor?
+  Enter project IDs separated by comma, or leave empty for all.
+  Current: (all projects)
+  > MYPROJ, BACKEND
+
+> Which ticket states?
+  1. Open only (default)
+  2. Open + In Progress
+  3. Custom
+  Current: Open
+  > 1
+
+> Which tags identify tickets for NLoop?
+  Current: nloop
+  > nloop, nloop-auto
+
+> Filter by priority?
+  1. All priorities (default)
+  2. Critical + Major only
+  3. Custom
+  > 2
+
+[NLoop Config] Polling filters updated:
+  project: ["MYPROJ", "BACKEND"]
+  state: ["Open"]
+  tag: ["nloop", "nloop-auto"]
+  priority: ["Critical", "Major"]
+
+  Generated query: "project: MYPROJ,BACKEND State: Open tag: nloop,nloop-auto Priority: Critical,Major"
+  Saved to .nloop/config/nloop.yaml
 ```
 
 ### `/nloop-report` — Aggregated Analytics
