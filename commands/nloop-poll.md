@@ -17,15 +17,36 @@ You poll YouTrack for new tickets and decide whether to auto-start them or queue
 ## Step 1: Load Configuration
 
 1. Read `.nloop/config/nloop.yaml` for:
-   - `polling.youtrack_query` — the base query to find new tickets
    - `polling.enabled` — if false, skip polling
+   - `polling.youtrack_query` — raw query (takes precedence if not empty)
+   - `polling.filters` — structured filters to build the query from
 2. Read `.nloop/config/triggers.yaml` for trigger rules
 
 If polling is disabled, display "Polling is disabled in nloop.yaml" and stop.
 
+## Step 1.5: Build YouTrack Query
+
+If `polling.youtrack_query` is not empty, use it directly.
+
+Otherwise, build the query from `polling.filters`:
+
+```
+query = ""
+if filters.project:     query += "project: {join with ','} "
+if filters.state:       query += "State: {join with ','} "
+if filters.type:        query += "Type: {join with ','} "
+if filters.priority:    query += "Priority: {join with ','} "
+if filters.tag:         query += "tag: {join with ','} "
+if filters.assignee:    query += "Assignee: {join with ','} "
+for key, value in filters.custom_fields:
+  query += "{key}: {value} "
+```
+
+Display: `[NLoop Poll] Query: {query}`
+
 ## Step 2: Fetch New Tickets
 
-1. Call `youtrack_list_tickets` with the configured query
+1. Call `youtrack_list_tickets` with the built query
 2. For each ticket returned, check if it's already being processed:
    - Check if `.nloop/features/{ticket_id}/` directory exists
    - If yes: skip (already in pipeline)

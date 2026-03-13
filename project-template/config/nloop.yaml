@@ -28,11 +28,26 @@ workflow_mapping:
   #     tags: [refactor]
   #   workflow: refactor
 
-# Polling settings
+# ─── Polling / YouTrack ─────────────────────────────────────
+# NLoop builds the YouTrack query from the filters below.
+# You can edit these with: /nloop-config polling
 polling:
   enabled: true
   interval: 30m
-  youtrack_query: "State: Open tag: nloop"
+
+  # Structured filters — NLoop builds the query automatically.
+  # All filters are AND-combined. Arrays are OR within the same filter.
+  filters:
+    project: []             # e.g., ["MYPROJ", "BACKEND"]
+    state: ["Open"]         # e.g., ["Open", "In Progress"]
+    type: []                # e.g., ["Bug", "Feature", "Task"]
+    priority: []            # e.g., ["Critical", "Major", "Normal"]
+    tag: ["nloop"]          # e.g., ["nloop", "nloop-auto"]
+    assignee: []            # e.g., ["john.doe", "Unassigned"]
+    custom_fields: {}       # e.g., { "Sprint": "Sprint 42", "Team": "Backend" }
+
+  # OR: raw YouTrack query (overrides filters above if not empty)
+  youtrack_query: ""
 
 # Model defaults per agent role
 models:

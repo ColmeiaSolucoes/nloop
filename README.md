@@ -453,6 +453,33 @@ export YOUTRACK_TOKEN="your-permanent-token"
 export YOUTRACK_BASE_URL="https://your-team.youtrack.cloud"
 ```
 
+#### Polling Filters
+
+Configure which tickets NLoop monitors using `/nloop-config polling` or edit `.nloop/config/nloop.yaml` directly:
+
+```yaml
+polling:
+  enabled: true
+  interval: 30m
+  filters:
+    project: ["MYPROJ"]           # YouTrack project IDs
+    state: ["Open"]               # Ticket states
+    type: ["Bug", "Feature"]      # Ticket types
+    priority: []                  # Empty = all priorities
+    tag: ["nloop"]                # Required tags
+    assignee: ["Unassigned"]      # Filter by assignee
+    custom_fields:                # YouTrack custom fields
+      Sprint: "Sprint 42"
+      Team: "Backend"
+```
+
+NLoop builds the YouTrack query automatically from these filters. Or use a raw query:
+
+```yaml
+polling:
+  youtrack_query: "project: MYPROJ State: Open tag: nloop"  # Overrides filters
+```
+
 ### Trigger Rules
 
 Edit `.nloop/config/triggers.yaml` to control how polled tickets are handled:
@@ -497,6 +524,7 @@ Create new workflows in `.nloop/workflows/` or edit existing ones. Each workflow
 | `/nloop-dryrun TICKET-ID` | Simulate a pipeline run without executing |
 | `/nloop-watch TICKET-ID` | Live progress dashboard for a running feature |
 | `/nloop-report` | Aggregated analytics — velocity, quality, trends |
+| `/nloop-config [section]` | Interactive setup wizard for polling, git, notifications |
 | `/nloop-poll` | Poll YouTrack for new tickets |
 
 ### `/nloop-dryrun` — Pipeline Simulation
