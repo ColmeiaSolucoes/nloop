@@ -271,6 +271,107 @@ Create new workflows in `.nloop/workflows/` or edit existing ones. Each workflow
 | `/nloop-dryrun TICKET-ID` | Simulate a pipeline run without executing |
 | `/nloop-poll` | Poll YouTrack for new tickets |
 
+### `/nloop-dryrun` — Pipeline Simulation
+
+Simulates the full NLoop pipeline **without spawning any agents or creating files**. Use it to validate your configuration, test workflow selection, preview skip conditions, and understand exactly what will happen before running `/nloop-start`.
+
+**Syntax:**
+
+```bash
+/nloop-dryrun TICKET-ID [--tags tag1,tag2] [--type Bug|Feature|Task] [--workflow name]
+```
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--tags` | Simulate ticket tags (comma-separated). Used for workflow selection and skip conditions |
+| `--type` | Simulate ticket type (`Bug`, `Feature`, `Task`) |
+| `--workflow` | Force a specific workflow, skipping auto-selection |
+| `--priority` | Simulate ticket priority (`Critical`, `Normal`, `Low`) |
+
+If no flags are provided and YouTrack MCP is configured, NLoop will fetch real ticket metadata automatically.
+
+**Examples:**
+
+```bash
+# Default workflow (feature ticket, no tags)
+/nloop-dryrun PROJ-42
+
+# Test bugfix workflow selection
+/nloop-dryrun PROJ-43 --tags bugfix
+
+# Hotfix — minimal pipeline
+/nloop-dryrun PROJ-44 --tags hotfix
+
+# Refactor with QA skipped (backend-only tag)
+/nloop-dryrun PROJ-45 --tags refactor,backend-only
+
+# Force a specific workflow regardless of tags
+/nloop-dryrun PROJ-46 --workflow hotfix
+
+# Simulate a Bug ticket type
+/nloop-dryrun PROJ-47 --type Bug --tags backend-only
+```
+
+**What it shows:**
+
+1. **Configuration Validation** — Checks `nloop.yaml`, all workflows, agents, and triggers for errors/warnings
+2. **Workflow Selection** — Evaluates `workflow_mapping` rules against the ticket metadata and shows which rule matched
+3. **Pipeline Simulation** — Walks the entire workflow graph node by node, showing:
+   - Each node's agent and action
+   - Skip conditions evaluated and their result
+   - All possible branches at review/test nodes (approved, rejected, max_rounds_exceeded, passed, failed)
+   - The "happy path" highlighted as the main flow
+4. **Resource Estimate** — Best-case and worst-case agent calls, models used, parallel worktrees needed, artifacts produced
+5. **Summary** — Total nodes, review points, parallel phases, git platform, and the branch name that would be created
+
+**Example output:**
+
+```
+🔍 NLoop Dryrun — PROJ-45
+══════════════════════════════════════════════════════
+
+📋 Configuration Validation
+  ✅ nloop.yaml v2 — valid
+  ✅ 4 workflows found: default, bugfix, hotfix, refactor
+  ✅ 7 agents defined
+  ✅ Git platform: github (gh CLI)
+
+🎯 Workflow Selection
+  Tags: refactor, backend-only
+  Rule matched: workflow_mapping[2] → tags: [refactor, tech-debt, cleanup]
+  ✅ Selected workflow: refactor
+
+🔄 Pipeline Simulation
+  ┌─ brainstorm (tech-leader)
+  ├─ plan (product-planner)
+  ├─ review-plan (tech-leader) — max 3 rounds
+  ├─ architecture (architect)
+  ├─ review-spec (tech-leader) — max 3 rounds
+  ├─ task-planning (project-manager)
+  ├─ execute-tasks (project-manager) [PARALLEL]
+  ├─ code-review (code-reviewer)
+  ├─ unit-testing (unit-tester)
+  │   ⏭️  qa-testing SKIPPED (refactor workflow + tag: backend-only)
+  ├─ create-pr (tech-leader)
+  ├─ post-mortem (tech-leader)
+  └─ ✅ DONE
+
+📊 Resource Estimates
+  Agent calls (happy path):  11 nodes
+  Agent calls (worst case):  20 nodes
+  Skipped phases:            brainstorm-refinement, qa-testing
+```
+
+**When to use it:**
+
+- Before running your first `/nloop-start` — validate the entire setup
+- After editing workflows or config — verify changes don't break the graph
+- When adding custom workflows — test that workflow selection rules match correctly
+- When using skip conditions — confirm the right nodes are being skipped
+- To compare workflows — run dryrun with different tags to see how pipelines differ
+
 ## Requirements
 
 - **Claude Code** (latest version with plugin support)
