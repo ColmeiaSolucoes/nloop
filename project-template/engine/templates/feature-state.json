@@ -32,7 +32,16 @@
     "phases": {},
     "bugs_found": 0,
     "bugs_fixed": 0,
-    "first_pass_code_review": null
+    "first_pass_code_review": null,
+    "perf_findings": {
+      "critical": 0,
+      "warning": 0,
+      "info": 0
+    }
+  },
+  "docs": {
+    "changelog_updated": false,
+    "files_updated": []
   },
   "pr": {
     "url": null,
@@ -46,5 +55,6 @@
     "node": null,
     "at": null
   },
+  "notifications_sent": [],
   "history": []
 }

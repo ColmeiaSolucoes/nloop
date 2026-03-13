@@ -1,6 +1,6 @@
 name: refactor
-version: 1
-description: Workflow for refactoring tasks — full planning but no visual QA testing
+version: 2
+description: Workflow for refactoring tasks — full planning, performance analysis, but no visual QA testing
 
 defaults:
   max_review_rounds: 3
@@ -65,6 +65,17 @@ nodes:
     action: review-code
     max_rounds: 3
 
+  perf-analysis:
+    agent: perf-analyzer
+    action: analyze-perf
+    description: Verify refactoring improved (or didn't regress) performance
+    produces: perf-report.md
+    consumes:
+      - spec.md
+      - tasks.md
+    skip_if:
+      - tag: no-perf
+
   unit-testing:
     agent: unit-tester
     action: run-tests
@@ -76,6 +87,19 @@ nodes:
     description: Fix regressions from refactoring
     consumes:
       - test-report-unit.md
+
+  docs-update:
+    agent: docs-writer
+    action: update-docs
+    description: Update docs and changelog for refactoring changes
+    produces: docs-update.md
+    consumes:
+      - plan.md
+      - spec.md
+      - tasks.md
+      - test-report-unit.md
+    skip_if:
+      - tag: no-docs
 
   create-pr:
     agent: tech-leader
@@ -134,12 +158,20 @@ edges:
     condition: rejected
 
   - from: code-review
-    to: unit-testing
+    to: perf-analysis
     condition: approved
+
+  # Performance Analysis → Unit Testing (unconditional — warnings don't block)
+  - from: perf-analysis
+    to: unit-testing
+
+  - from: perf-analysis
+    to: unit-testing
+    condition: skipped
 
   # No QA testing for refactors — only unit tests
   - from: unit-testing
-    to: create-pr
+    to: docs-update
     condition: passed
 
   - from: unit-testing
@@ -148,6 +180,14 @@ edges:
 
   - from: bug-fixing
     to: code-review
+
+  # Docs Update → Create PR
+  - from: docs-update
+    to: create-pr
+
+  - from: docs-update
+    to: create-pr
+    condition: skipped
 
   # PR → Post-mortem → Done
   - from: create-pr

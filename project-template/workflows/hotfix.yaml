@@ -1,5 +1,5 @@
 name: hotfix
-version: 1
+version: 2
 description: Minimal workflow for critical hotfixes — straight to implementation with expedited review
 
 defaults:
@@ -37,6 +37,16 @@ nodes:
     consumes:
       - test-report-unit.md
 
+  docs-update:
+    agent: docs-writer
+    action: update-docs
+    description: Generate minimal changelog entry for the hotfix
+    produces: docs-update.md
+    consumes:
+      - brainstorm.md
+    skip_if:
+      - tag: no-docs
+
   create-pr:
     agent: tech-leader
     action: create-pr
@@ -71,7 +81,7 @@ edges:
 
   # Unit Testing — no QA for hotfixes
   - from: unit-testing
-    to: create-pr
+    to: docs-update
     condition: passed
 
   - from: unit-testing
@@ -80,6 +90,14 @@ edges:
 
   - from: bug-fixing
     to: code-review
+
+  # Docs Update → Create PR
+  - from: docs-update
+    to: create-pr
+
+  - from: docs-update
+    to: create-pr
+    condition: skipped
 
   # PR → Post-mortem → Done
   - from: create-pr

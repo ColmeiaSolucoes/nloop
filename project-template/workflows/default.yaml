@@ -1,5 +1,5 @@
 name: default
-version: 1
+version: 2
 description: Standard development workflow for feature tickets
 
 defaults:
@@ -75,6 +75,19 @@ nodes:
     action: review-code
     max_rounds: 4
 
+  perf-analysis:
+    agent: perf-analyzer
+    action: analyze-perf
+    description: Analyze code changes for performance impact
+    produces: perf-report.md
+    consumes:
+      - spec.md
+      - tasks.md
+    skip_if:
+      - tag: no-perf
+      - tag: docs-only
+      - tag: config-only
+
   unit-testing:
     agent: unit-tester
     action: run-tests
@@ -96,6 +109,19 @@ nodes:
     consumes:
       - test-report-unit.md
       - test-report-qa.md
+
+  docs-update:
+    agent: docs-writer
+    action: update-docs
+    description: Generate changelog and update project documentation
+    produces: docs-update.md
+    consumes:
+      - plan.md
+      - spec.md
+      - tasks.md
+      - test-report-unit.md
+    skip_if:
+      - tag: no-docs
 
   create-pr:
     agent: tech-leader
@@ -164,8 +190,17 @@ edges:
     condition: rejected
 
   - from: code-review
-    to: unit-testing
+    to: perf-analysis
     condition: approved
+
+  # Performance Analysis → Unit Testing (unconditional — warnings don't block)
+  - from: perf-analysis
+    to: unit-testing
+
+  # Perf skipped → Unit Testing
+  - from: perf-analysis
+    to: unit-testing
+    condition: skipped
 
   # Unit Testing outcomes
   - from: unit-testing
@@ -178,16 +213,24 @@ edges:
 
   # QA Testing outcomes
   - from: qa-testing
-    to: create-pr
+    to: docs-update
     condition: passed
 
   - from: qa-testing
-    to: create-pr
+    to: docs-update
     condition: skipped
 
   - from: qa-testing
     to: bug-fixing
     condition: failed
+
+  # Docs Update → Create PR
+  - from: docs-update
+    to: create-pr
+
+  - from: docs-update
+    to: create-pr
+    condition: skipped
 
   # Bug fixing → back to Code Review
   - from: bug-fixing

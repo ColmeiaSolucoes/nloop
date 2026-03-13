@@ -288,12 +288,119 @@ Go back to Step 3.1 with the new `current_node`.
 2. Log event: `workflow_failed`
 3. Display failure details
 
+## Step 5: Notifications
+
+After key events, send notifications to configured webhooks:
+
+1. **Check config**: Read `notifications` from `.nloop/config/nloop.yaml`
+2. If `notifications.enabled: false`, skip all notifications
+3. Check if the current event is in `notifications.events` list
+4. Send to all configured platforms (Slack, Discord, Teams, custom)
+
+### Notification Events
+
+| Event | When | Message |
+|-------|------|---------|
+| `workflow_started` | Step 1 complete | "🚀 NLoop started {TICKET_ID} using workflow `{workflow}`" |
+| `workflow_completed` | Terminal: done | "✅ {TICKET_ID} completed! PR: {pr_url}" |
+| `workflow_escalated` | Terminal: escalate | "⚠️ {TICKET_ID} escalated at `{node}`: {reason}" |
+| `workflow_failed` | Terminal: failed | "❌ {TICKET_ID} failed at `{node}`: {error}" |
+| `pr_created` | create-pr node done | "🔗 PR created for {TICKET_ID}: {pr_url}" |
+
+### Slack Webhook Format
+
+```bash
+curl -X POST "{slack.webhook_url}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "channel": "{slack.channel}",
+    "text": "{message}",
+    "blocks": [
+      {
+        "type": "section",
+        "text": {
+          "type": "mrkdwn",
+          "text": "{formatted_message}"
+        }
+      }
+    ]
+  }'
+```
+
+For escalation events, append `{slack.mention_on_escalation}` to the message.
+
+### Discord Webhook Format
+
+```bash
+curl -X POST "{discord.webhook_url}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content": "{message}",
+    "embeds": [{
+      "title": "NLoop — {event}",
+      "description": "{details}",
+      "color": {color_by_event}
+    }]
+  }'
+```
+
+Colors: started=3447003 (blue), completed=3066993 (green), escalated=15105570 (orange), failed=15158332 (red)
+
+### Teams Webhook Format
+
+```bash
+curl -X POST "{teams.webhook_url}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "@type": "MessageCard",
+    "themeColor": "{color}",
+    "summary": "NLoop — {event}",
+    "sections": [{
+      "activityTitle": "NLoop — {TICKET_ID}",
+      "facts": [
+        { "name": "Event", "value": "{event}" },
+        { "name": "Workflow", "value": "{workflow}" },
+        { "name": "Details", "value": "{details}" }
+      ]
+    }]
+  }'
+```
+
+### Custom Webhook Format
+
+```bash
+curl -X POST "{custom.url}" \
+  -H "Content-Type: application/json" \
+  {custom.headers as -H flags} \
+  -d '{
+    "event": "{event}",
+    "ticket_id": "{TICKET_ID}",
+    "workflow": "{workflow}",
+    "details": "{details}",
+    "timestamp": "{now}"
+  }'
+```
+
+### Notification Logging
+
+After sending, append to state:
+```json
+{
+  "notifications_sent": [
+    { "event": "workflow_started", "platform": "slack", "at": "{timestamp}", "status": "sent" }
+  ]
+}
+```
+
+If a webhook fails (non-2xx response), log it but do NOT block the pipeline. Notifications are best-effort.
+
 ## Error Handling
 
 - **Agent spawn fails**: Log the error, retry once. If still fails, escalate.
 - **Agent produces unexpected output**: Log warning, try to parse. If unparseable, escalate.
 - **State file corrupted**: Attempt to reconstruct from history. If impossible, escalate.
 - **Workflow edge not found**: Log error with details. This indicates a workflow YAML bug. Escalate.
+- **Notification webhook fails**: Log warning. Do NOT block the pipeline.
 
 ## Logging System
 

@@ -44,6 +44,9 @@ Then run `/nloop-init` in Claude Code.
 # Start with a description
 /nloop-start PROJ-42 "Add dark mode support"
 
+# Watch live progress
+/nloop-watch PROJ-42
+
 # Resume a paused/crashed feature
 /nloop-resume TICKET-ID
 
@@ -55,6 +58,12 @@ Then run `/nloop-init` in Claude Code.
 
 # View metrics and trends
 /nloop-metrics
+
+# Weekly analytics report
+/nloop-report --period week
+
+# Simulate before running
+/nloop-dryrun PROJ-42 --tags backend-only
 
 # Poll YouTrack for new tickets
 /nloop-poll
@@ -69,7 +78,8 @@ NLoop orchestrates a pipeline of specialized AI agents through a state graph:
 
 ```
 Ticket → Brainstorm → Plan → Review → Architecture → Review → Refinement
-    → Task Planning → Parallel Implementation → Code Review → Tests → PR → Post-Mortem
+    → Task Planning → Parallel Implementation → Code Review → Perf Analysis
+    → Tests → Docs/Changelog → PR → Post-Mortem → Notify
 ```
 
 Each step is handled by a specialized agent:
@@ -82,8 +92,10 @@ Each step is handled by a specialized agent:
 | **Project Manager** | EPICs, tasks, dependency graphs | sonnet |
 | **Developer** | Implements tasks (parallel via worktrees) | sonnet |
 | **Code Reviewer** | Reviews code quality and security | sonnet |
+| **Perf Analyzer** | Bundle size, N+1 queries, algorithmic complexity | sonnet |
 | **Unit Tester** | Runs/writes unit and integration tests | sonnet |
 | **QA Tester** | Visual/E2E testing via Chrome MCP | sonnet |
+| **Docs Writer** | Changelog generation, README/API doc updates | sonnet |
 
 ### Workflow Selection by Ticket Type
 
@@ -92,8 +104,8 @@ NLoop automatically selects the right workflow based on ticket tags:
 | Workflow | When | What it skips |
 |----------|------|---------------|
 | **default** | Features, new functionality | Nothing — full pipeline |
-| **bugfix** | Tags: `bugfix`, `bug` | Plan, Architecture, Spec review |
-| **hotfix** | Tags: `hotfix`, `critical-fix` | Plan, Spec, Task planning, QA |
+| **bugfix** | Tags: `bugfix`, `bug` | Plan, Architecture, Spec review, Perf analysis |
+| **hotfix** | Tags: `hotfix`, `critical-fix` | Plan, Spec, Task planning, QA, Perf analysis |
 | **refactor** | Tags: `refactor`, `tech-debt` | QA visual testing, Brainstorm refinement |
 
 Configure mapping in `.nloop/config/nloop.yaml`:
@@ -152,6 +164,77 @@ View aggregated metrics across all features:
 /nloop-metrics TICKET-ID               # Single feature metrics
 /nloop-metrics --compare T-1 T-2       # Side-by-side comparison
 ```
+
+### Performance Analysis
+
+After code review approval, the **Perf Analyzer** scans for performance issues:
+
+- **Bundle size**: new large dependencies, missing tree-shaking or code splitting
+- **Database queries**: N+1 patterns, unbounded SELECTs, missing indexes
+- **Algorithmic complexity**: nested loops, missing memoization, O(n^2) patterns
+- **Memory/resources**: event listener leaks, unbounded caches, missing cleanup
+- **Render performance**: unnecessary re-renders, missing virtualization
+- **API/network**: waterfall requests, large payloads without pagination
+
+Results are categorized as Critical/Warning/Info. Warnings don't block the pipeline — they're logged in `perf-report.md` for reference.
+
+Skip performance analysis with tag `no-perf` or `docs-only`.
+
+### Documentation & Changelog
+
+The **Docs Writer** runs before PR creation and automatically:
+
+- Generates a **changelog entry** following [Keep a Changelog](https://keepachangelog.com/) format
+- Updates `CHANGELOG.md` under the `[Unreleased]` section
+- Detects new API endpoints, components, config changes, and updates relevant docs
+- Makes minimal, targeted README updates for user-facing features
+
+Configure in `.nloop/config/nloop.yaml`:
+
+```yaml
+changelog:
+  enabled: true
+  file: "CHANGELOG.md"
+  format: "keepachangelog"  # keepachangelog | conventional | simple
+```
+
+Skip docs with tag `no-docs`.
+
+### Notifications
+
+NLoop can send webhook notifications at key pipeline events to Slack, Discord, Teams, or any custom endpoint:
+
+```yaml
+# In nloop.yaml
+notifications:
+  enabled: true
+  events: [workflow_started, workflow_completed, workflow_escalated, pr_created]
+
+  slack:
+    webhook_url: "https://hooks.slack.com/services/T00/B00/xxx"
+    channel: "#dev-pipeline"
+    mention_on_escalation: "@channel"
+
+  discord:
+    webhook_url: "https://discord.com/api/webhooks/123/abc"
+
+  teams:
+    webhook_url: "https://outlook.office.com/webhook/..."
+
+  custom:
+    url: "https://your-api.com/nloop-events"
+    headers: { "Authorization": "Bearer xxx" }
+```
+
+| Event | Trigger |
+|-------|---------|
+| `workflow_started` | Pipeline begins |
+| `workflow_completed` | Feature done, PR created |
+| `workflow_escalated` | Human intervention needed |
+| `workflow_failed` | Pipeline error |
+| `pr_created` | PR opened on GitHub/Bitbucket |
+
+Notifications are best-effort — webhook failures never block the pipeline.
 
 ### Git Platform Support
 
@@ -269,6 +352,8 @@ Create new workflows in `.nloop/workflows/` or edit existing ones. Each workflow
 | `/nloop-status [TICKET-ID]` | View dashboard or feature details |
 | `/nloop-metrics [TICKET-ID]` | View metrics and trends |
 | `/nloop-dryrun TICKET-ID` | Simulate a pipeline run without executing |
+| `/nloop-watch TICKET-ID` | Live progress dashboard for a running feature |
+| `/nloop-report` | Aggregated analytics — velocity, quality, trends |
 | `/nloop-poll` | Poll YouTrack for new tickets |
 
 ### `/nloop-dryrun` — Pipeline Simulation
@@ -371,6 +456,61 @@ If no flags are provided and YouTrack MCP is configured, NLoop will fetch real t
 - When adding custom workflows — test that workflow selection rules match correctly
 - When using skip conditions — confirm the right nodes are being skipped
 - To compare workflows — run dryrun with different tags to see how pipelines differ
+
+### `/nloop-watch` — Live Progress Dashboard
+
+Real-time progress view for a running pipeline. Shows which node is executing, elapsed time per phase, and a live timeline of events.
+
+```bash
+/nloop-watch TICKET-ID
+/nloop-watch TICKET-ID --tail 20    # Show last 20 events
+```
+
+**What it shows:**
+
+- Pipeline progress bar with node states (completed, in-progress, pending, skipped)
+- Elapsed time per phase
+- Review round status and task breakdown
+- Artifacts checklist (which files exist vs pending)
+- Recent events log
+- Status-specific views for completed/escalated/failed features
+
+**Example:**
+
+```
+📍 Pipeline Progress
+
+  ✅ brainstorm          tech-leader         2m 15s
+  ✅ plan                product-planner     5m 42s
+  ✅ review-plan         tech-leader         1m 30s    APPROVED (round 1)
+  ✅ architecture        architect           8m 12s
+  🔄 code-review        code-reviewer       --:--     IN PROGRESS
+  ⬚  perf-analysis      perf-analyzer       --:--
+  ⬚  unit-testing       unit-tester         --:--
+  ⬚  docs-update        docs-writer         --:--
+
+  Progress: 6/14 nodes (43%)
+  ██████████░░░░░░░░░░░ 43%
+```
+
+### `/nloop-report` — Aggregated Analytics
+
+Generate reports across all completed features with velocity trends, quality metrics, and actionable recommendations.
+
+```bash
+/nloop-report                    # Last 7 days
+/nloop-report --period month     # Last 30 days
+/nloop-report --period all       # All time
+/nloop-report --format json      # JSON output for integrations
+```
+
+**Sections:**
+
+- **Velocity**: features completed, avg/median time, trend vs previous period, breakdown by workflow type
+- **Quality**: first-pass code review rate, avg review rounds, bug density, escalation rate
+- **Phase Timing**: average duration per phase, bottleneck detection, trend arrows
+- **Agent Performance**: rejections by agent, review efficiency, bug attribution
+- **Recommendations**: AI-generated actionable suggestions based on data patterns (e.g., "Plan rejection rate is 40% — consider more detailed brainstorming")
 
 ## Requirements
 

@@ -1,4 +1,4 @@
-version: 2
+version: 3
 
 # Default workflow to use for new features
 default_workflow: default
@@ -43,6 +43,8 @@ models:
   developer: sonnet
   reviewer: sonnet
   tester: sonnet
+  analyzer: sonnet
+  documenter: sonnet
 
 # Review defaults
 review:
@@ -84,6 +86,50 @@ metrics:
   # Auto-generate post-mortem at end of each feature
   auto_post_mortem: true
 
+# ─── Notifications ──────────────────────────────────────────
+# Send webhook notifications at key pipeline events.
+# Supports Slack, Discord, Teams, or any custom webhook URL.
+notifications:
+  enabled: false
+
+  # Events that trigger notifications
+  events:
+    - workflow_started
+    - workflow_completed
+    - workflow_escalated
+    - workflow_failed
+    - pr_created
+
+  # Slack incoming webhook
+  # Create at: https://api.slack.com/messaging/webhooks
+  slack:
+    webhook_url: ""       # e.g., "https://hooks.slack.com/services/T00/B00/xxx"
+    channel: ""           # Optional: override default channel
+    mention_on_escalation: ""  # e.g., "@channel" or "<@U123456>"
+
+  # Discord webhook
+  # Create in: Server Settings → Integrations → Webhooks
+  discord:
+    webhook_url: ""       # e.g., "https://discord.com/api/webhooks/123/abc"
+
+  # Microsoft Teams incoming webhook
+  teams:
+    webhook_url: ""       # e.g., "https://outlook.office.com/webhook/..."
+
+  # Custom webhook (generic HTTP POST)
+  # Receives JSON payload: { event, ticket_id, workflow, details, timestamp }
+  custom:
+    url: ""
+    headers: {}           # Additional headers (e.g., { "Authorization": "Bearer xxx" })
+
+# ─── Changelog ──────────────────────────────────────────────
+changelog:
+  enabled: true
+  # Path to changelog file (relative to project root)
+  file: "CHANGELOG.md"
+  # Format: keepachangelog | conventional | simple
+  format: "keepachangelog"
+
 # ─── Skip Conditions ─────────────────────────────────────────
 # Global skip conditions applied to all workflows.
 # These supplement per-node skip_if in workflow YAML.
@@ -94,6 +140,12 @@ skip_conditions:
   # Skip plan+spec for these tags (use bugfix workflow instead)
   planning:
     skip_tags: [bugfix, hotfix]
+  # Skip performance analysis for these tags
+  perf_analysis:
+    skip_tags: [docs-only, config-only, no-perf]
+  # Skip docs update for these tags
+  docs_update:
+    skip_tags: [no-docs]
 
 # Feature directory
 features_dir: features

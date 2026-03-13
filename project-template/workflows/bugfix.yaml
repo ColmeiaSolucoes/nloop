@@ -1,5 +1,5 @@
 name: bugfix
-version: 1
+version: 2
 description: Simplified workflow for bug fixes — skips planning and architecture phases
 
 defaults:
@@ -56,6 +56,18 @@ nodes:
       - test-report-unit.md
       - test-report-qa.md
 
+  docs-update:
+    agent: docs-writer
+    action: update-docs
+    description: Generate changelog entry for the bug fix
+    produces: docs-update.md
+    consumes:
+      - brainstorm.md
+      - tasks.md
+      - test-report-unit.md
+    skip_if:
+      - tag: no-docs
+
   create-pr:
     agent: tech-leader
     action: create-pr
@@ -96,18 +108,26 @@ edges:
     to: bug-fixing
     condition: failed
 
-  # QA Testing outcomes (or skipped → goes to create-pr)
+  # QA Testing outcomes
   - from: qa-testing
-    to: create-pr
+    to: docs-update
     condition: passed
 
   - from: qa-testing
-    to: create-pr
+    to: docs-update
     condition: skipped
 
   - from: qa-testing
     to: bug-fixing
     condition: failed
+
+  # Docs Update → Create PR
+  - from: docs-update
+    to: create-pr
+
+  - from: docs-update
+    to: create-pr
+    condition: skipped
 
   # Bug fixing → back to Code Review
   - from: bug-fixing
