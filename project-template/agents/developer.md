@@ -16,7 +16,7 @@ tools:
   - Bash
 
 model: sonnet
-mode: acceptEdits
+mode: auto
 
 actions:
   - implement-task

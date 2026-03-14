@@ -15,7 +15,7 @@ tools:
   - Glob
 
 model: opus
-mode: default
+mode: auto
 
 actions:
   - create-spec

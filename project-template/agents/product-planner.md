@@ -17,7 +17,7 @@ tools:
   - WebFetch
 
 model: sonnet
-mode: default
+mode: auto
 
 actions:
   - create-plan

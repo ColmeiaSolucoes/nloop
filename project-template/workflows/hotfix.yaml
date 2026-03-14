@@ -13,16 +13,26 @@ nodes:
     description: Quick root cause analysis and fix strategy
     produces: brainstorm.md
 
+  task-planning:
+    agent: project-manager
+    action: create-tasks
+    description: Create minimal fix task(s) from brainstorm analysis
+    produces: tasks.md
+    consumes:
+      - brainstorm.md
+
   execute-tasks:
     agent: project-manager
     action: dispatch-tasks
     description: Single developer implements the fix
     consumes:
+      - tasks.md
       - brainstorm.md
 
   code-review:
     agent: code-reviewer
     action: review-code
+    target: code
     max_rounds: 1
 
   unit-testing:
@@ -61,12 +71,20 @@ nodes:
       - generate-execution-report
 
 edges:
-  # Brainstorm → straight to implementation (no plan, no spec, no tasks breakdown)
+  # Brainstorm → minimal task planning → implementation
   - from: brainstorm
+    to: task-planning
+
+  - from: task-planning
     to: execute-tasks
 
   - from: execute-tasks
     to: code-review
+    condition: completed
+
+  - from: execute-tasks
+    to: escalate
+    condition: failed
 
   # Code Review — only 1 round, then escalate
   - from: code-review
@@ -101,6 +119,10 @@ edges:
   - from: docs-update
     to: create-pr
     condition: skipped
+
+  - from: docs-update
+    to: create-pr
+    condition: failed
 
   # PR → Post-mortem → Done
   - from: create-pr

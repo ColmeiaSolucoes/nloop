@@ -4,6 +4,25 @@ All notable changes to NLoop will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.3.0] — 2026-03-13
+
+### Changed
+- All 10 agents now use `mode: auto` for fully autonomous execution (was `default` for 8 agents, `acceptEdits` for 2)
+- Orchestrator (`nloop-start.md`) now forces `mode: "auto"` on all spawned agents regardless of frontmatter
+- Brainstorm and brainstorm-refinement nodes use `inline_when: manual` instead of `inline: true` — interactive only via `/nloop-start`, autonomous via `/nloop-exec` and `/nloop-poll`
+- `nloop-exec` explicitly documents that ALL nodes run autonomously (no user interaction at any point)
+- `perf-analysis` failed edge now routes to `execute-tasks` (was incorrectly routing to `bug-fixing` which expects test reports that don't exist yet)
+- Hotfix workflow now includes `task-planning` node between brainstorm and execute-tasks (was missing, causing `dispatch-tasks` to fail without `tasks.md`)
+
+### Fixed
+- Added missing `code-review → escalate (max_rounds_exceeded)` edge in default, bugfix, and refactor workflows
+- Added missing `execute-tasks → escalate (failed)` edge in all 4 workflows
+- Added missing `docs-update → create-pr (failed)` edge in all 4 workflows
+- Added missing `perf-analysis → execute-tasks (failed)` edge in default and refactor workflows
+- Added `target: code` to `code-review` node in all 4 workflows (was missing, breaking review round tracking)
+- Removed `Write` tool from code-reviewer agent (agent is read-only, orchestrator saves reviews)
+- Fixed `marketplace.json` — updated version to 1.3.0, agent count to 10, author to Nectar Team
+
 ## [1.2.0] — 2026-03-13
 
 ### Added
@@ -29,7 +48,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 - `state-schema.json` now matches `feature-state.json` template (added `ticket_tags`, `metrics`, `docs`, `notifications_sent`, `models_used`)
-- Code-reviewer agent now has `Write` tool (was missing — couldn't save review files)
+- Code-reviewer review artifacts are now saved by the orchestrator (agent is read-only)
 - Duplicate/ambiguous edges in all 4 workflows — perf-analysis uses `passed`/`warning`/`skipped`; docs-update uses `completed`/`skipped`
 - Progress bar in `/nloop-status` is now dynamic (reads workflow YAML instead of hardcoded 13 steps)
 - `feature-summary.md` template updated with all 12 artifacts

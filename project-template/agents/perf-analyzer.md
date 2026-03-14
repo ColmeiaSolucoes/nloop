@@ -14,7 +14,7 @@ tools:
   - Bash
 
 model: sonnet
-mode: default
+mode: auto
 
 actions:
   - analyze-perf

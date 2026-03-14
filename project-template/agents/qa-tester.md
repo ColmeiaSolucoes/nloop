@@ -30,7 +30,7 @@ skills:
   - dogfood
 
 model: sonnet
-mode: default
+mode: auto
 
 actions:
   - visual-test

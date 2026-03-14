@@ -15,7 +15,7 @@ tools:
   - Bash
 
 model: sonnet
-mode: default
+mode: auto
 
 actions:
   - run-tests

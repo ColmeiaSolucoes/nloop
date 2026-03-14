@@ -15,7 +15,7 @@ tools:
   - Glob
 
 model: sonnet
-mode: default
+mode: auto
 
 actions:
   - create-tasks

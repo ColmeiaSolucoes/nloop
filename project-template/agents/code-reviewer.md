@@ -8,13 +8,12 @@ description: >
 
 tools:
   - Read
-  - Write
   - Grep
   - Glob
   - Bash
 
 model: sonnet
-mode: default
+mode: auto
 
 actions:
   - review-code

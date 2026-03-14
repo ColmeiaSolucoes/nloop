@@ -18,7 +18,7 @@ tools:
   - Bash
 
 model: opus
-mode: default
+mode: auto
 
 actions:
   - brainstorm
