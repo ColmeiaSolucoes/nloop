@@ -42,6 +42,7 @@ Copy all files from the plugin's `project-template/` directory to `.nloop/`:
 - `project-template/agents/*.md` → `.nloop/agents/`
 - `project-template/workflows/*.yaml` → `.nloop/workflows/`
 - `project-template/engine/state-schema.json` → `.nloop/engine/state-schema.json`
+- `project-template/engine/context-windows.yaml` → `.nloop/engine/context-windows.yaml`
 - `project-template/engine/templates/*` → `.nloop/engine/templates/`
 - `project-template/.gitignore` → `.nloop/.gitignore`
 

@@ -84,6 +84,9 @@ Before initializing, determine which workflow to use:
    - `edges`: list of { from, to, condition }
    - `defaults`: { max_review_rounds, timeout }
 3. Validate that the `current_node` from state exists in the workflow
+4. Read the context windowing config from `.nloop/engine/context-windows.yaml`
+   - This maps node names to the specific sections they need from each consumed artifact
+   - Used in Step 3.4 to reduce agent prompt size by passing only relevant sections
 
 ## Step 3: Orchestration Loop
 
@@ -114,9 +117,19 @@ node = workflow.nodes[state.current_node]
 
 Some nodes require **user interaction** and cannot be delegated to a background agent. These nodes run **inline** in the main conversation context.
 
-A node is interactive if:
-- The node has `inline: true` in the workflow YAML, OR
-- The node's `action` is `brainstorm` or `brainstorm-refinement`
+A node is interactive if ALL of the following are true:
+1. The node has `inline: true` in the workflow YAML, OR the node has `inline_when: manual` and `state.trigger == "manual"`
+2. AND the trigger is `manual` (i.e., `/nloop-start`)
+
+**A node is NOT interactive if:**
+- The trigger is `exec` (from `/nloop-exec`) or `poll` (from `/nloop-poll`) — ALL nodes run autonomously
+- The node has `inline_when: manual` but the trigger is NOT `manual`
+- The node has no `inline` or `inline_when` field
+
+**When a node that would normally be interactive runs autonomously** (because trigger is `exec` or `poll`):
+- Do NOT invoke the `/brainstorming` skill
+- Instead, spawn the agent normally (Step 3.3) and pass the ticket description as context
+- The agent will produce the artifact autonomously without user interaction
 
 **If the node IS interactive (inline):**
 
@@ -176,7 +189,7 @@ You are performing the "{node.action}" action for ticket {state.ticket_id}.
 {state.ticket_description or "No description provided — explore the codebase and ask the user if needed."}
 
 ## Consumed Artifacts
-{For each file in node.consumes: read .nloop/features/{TICKET_ID}/{filename} and include its contents}
+{For each file in node.consumes: apply context windowing (see Step 3.4a below)}
 
 ## Previous Review Feedback (only if this is a revision after rejection)
 {If current_node was reached via a "rejected" edge: read the latest review from .nloop/features/{TICKET_ID}/reviews/}
@@ -197,6 +210,70 @@ You are an autonomous agent in an automated pipeline. You MUST complete your ent
 {Full agent system prompt from the .md file body (everything after the frontmatter)}
 ```
 
+### 3.4a: Context Windowing for Consumed Artifacts
+
+Instead of embedding the full contents of every consumed artifact into the agent prompt, use the **context windowing config** (loaded in Step 2.4) to extract only the sections the current node actually needs. This reduces per-agent input tokens by 30–50%.
+
+**Algorithm for each artifact in `node.consumes`**:
+
+1. Look up `context_windows.nodes[current_node][artifact_filename]`
+2. **If the value is `"*"` or the node/artifact is not listed**: include the full artifact content (default behavior)
+3. **If the value is a list of section names**: apply windowing:
+   a. Read the full artifact from `.nloop/features/{TICKET_ID}/{filename}`
+   b. Parse all `##` headings to build a section list (name + line range)
+   c. Generate a **summary header** listing all sections with line counts:
+      ```
+      ### {filename} — Context Window
+      Full artifact: {total_lines} lines | Sections: {comma-separated list of all headings}
+      Included sections: {comma-separated list of matched headings}
+      [Full artifact available at: .nloop/features/{TICKET_ID}/{filename}]
+      ```
+   d. For each section name in the config list, find the matching `##` heading in the artifact (case-insensitive substring match) and extract its content (from the heading line to the line before the next same-level or higher-level heading)
+   e. Include the summary header followed by the extracted sections
+   f. If a listed section is not found in the artifact, skip it silently (the artifact may not have that section if the workflow variant doesn't produce it)
+
+**Example — task-planning node consuming spec.md**:
+
+If `context-windows.yaml` says:
+```yaml
+task-planning:
+  spec.md:
+    - Data Models
+    - API / Interfaces
+    - File Changes Required
+    - Implementation Details
+    - Dependencies
+    - Testing Strategy
+```
+
+The prompt includes:
+```markdown
+### spec.md — Context Window
+Full artifact: 210 lines | Sections: Architecture Overview, Tech Stack Context, Data Models, API / Interfaces, File Changes Required, Implementation Details, Dependencies, Testing Strategy, Migration / Rollback, Performance Considerations, Security Considerations, Assumptions
+Included sections: Data Models, API / Interfaces, File Changes Required, Implementation Details, Dependencies, Testing Strategy
+[Full artifact available at: .nloop/features/PROJ-42/spec.md]
+
+## Data Models
+{extracted content...}
+
+## API / Interfaces
+{extracted content...}
+
+## File Changes Required
+{extracted content...}
+
+## Implementation Details
+{extracted content...}
+
+## Dependencies
+{extracted content...}
+
+## Testing Strategy
+{extracted content...}
+```
+
+**Important**: The agent always has access to the full artifact path. If it needs a section that was windowed out, it can read the file directly using the Read tool. The summary header makes this clear.
+
 ### 3.5: Spawn Agent
 
 Use the Claude Code Agent tool:
@@ -204,11 +281,13 @@ Use the Claude Code Agent tool:
 Agent(
   prompt: [the constructed prompt],
   model: node.agent.model (from frontmatter),
-  mode: node.agent.mode (from frontmatter),
+  mode: "auto",
   isolation: "worktree" (ONLY if node.agent == "developer" and node.parallel == true),
   description: "{node.agent}: {node.action} for {state.ticket_id}"
 )
 ```
+
+**CRITICAL**: Always use `mode: "auto"` when spawning agents. This ensures agents run fully autonomously without asking the user for permission on any tool call. The `mode` in agent frontmatter is ignored — the orchestrator always overrides to `"auto"` to prevent pipeline interruptions.
 
 **Special case — execute-tasks node (parallel dispatch)**:
 When `node.parallel == true` and `node.action == "dispatch-tasks"`:
@@ -640,5 +719,5 @@ After **each phase completion** (not every node, only when transitioning to a ne
 2. **Never modify the workflow YAML** — it's configuration, not runtime state
 3. **Always log events** — observability is critical for debugging
 4. **Respect max_concurrent_agents** — don't spawn more than the configured limit
-5. **Pass only relevant context to agents** — don't dump the entire feature directory into every prompt
+5. **Pass only relevant context to agents** — use context windowing (Step 3.4a) to extract targeted artifact sections instead of full contents
 6. **Update summary.md after each major phase** — keeps the human-readable report current

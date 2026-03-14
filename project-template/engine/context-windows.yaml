@@ -1,0 +1,126 @@
+# Context Windowing Configuration
+# ─────────────────────────────────────────────────────────────
+# Maps each workflow node to the specific sections it needs from
+# consumed artifacts. Instead of passing full artifact contents to
+# every agent, the orchestrator extracts only relevant sections.
+#
+# This reduces per-agent input tokens by 30-50%, lowering latency
+# and cost while preserving all information the agent needs.
+#
+# Section matching rules:
+#   - Sections are matched by markdown heading text (case-insensitive
+#     substring match against ## headings in the artifact)
+#   - "*" means include the full artifact (no windowing)
+#   - Omitted artifacts inherit the default behavior
+#
+# The orchestrator always prepends a summary header listing all
+# sections in the artifact so the agent knows what was omitted.
+# ─────────────────────────────────────────────────────────────
+
+version: 1
+
+# Default: include full artifact content (backward-compatible)
+default: "*"
+
+# ─── Node-specific context windows ─────────────────────────
+
+nodes:
+  # Product Planner needs the full brainstorm (it's typically short
+  # and is the primary input for plan creation)
+  plan:
+    brainstorm.md: "*"
+
+  # Architect needs the plan's what/why and the brainstorm's decisions,
+  # but not the plan's research findings or risk tables in full
+  architecture:
+    plan.md:
+      - Overview
+      - Problem Statement
+      - Current State Analysis
+      - Implementation Approach
+      - Phases
+      - User Experience
+      - Risks & Mitigations
+    brainstorm.md:
+      - Problem Analysis
+      - Key Decisions
+      - Approach
+      - Constraints & Considerations
+
+  # Refinement brainstorm only needs plan goals + spec structure
+  # to check alignment — not full plan research or spec code sketches
+  brainstorm-refinement:
+    plan.md:
+      - Overview
+      - Desired End State
+      - Implementation Approach
+      - Open Questions
+    spec.md:
+      - Architecture Overview
+      - Data Models
+      - API / Interfaces
+      - File Changes Required
+      - Assumptions
+
+  # Project Manager needs the spec's structure for task breakdown,
+  # but not the plan's research or brainstorm details
+  task-planning:
+    plan.md:
+      - Overview
+      - Phases
+    spec.md:
+      - Data Models
+      - API / Interfaces
+      - File Changes Required
+      - Implementation Details
+      - Dependencies
+      - Testing Strategy
+    brainstorm-refined.md:
+      - Gaps Identified
+      - Final Recommendations
+
+  # Task dispatch needs full tasks list and spec implementation details
+  # (the dispatch logic further narrows spec to per-task excerpts)
+  execute-tasks:
+    tasks.md: "*"
+    spec.md:
+      - File Changes Required
+      - Implementation Details
+      - Data Models
+      - API / Interfaces
+
+  # Performance analyzer needs architecture context and perf notes,
+  # not the full spec's code sketches or testing strategy
+  perf-analysis:
+    spec.md:
+      - Architecture Overview
+      - Data Models
+      - Performance Considerations
+      - Dependencies
+    tasks.md:
+      - Summary
+
+  # Docs writer needs high-level feature context, API surface,
+  # and test results — not full spec implementation details
+  docs-update:
+    plan.md:
+      - Overview
+    spec.md:
+      - API / Interfaces
+      - Data Models
+    tasks.md:
+      - Summary
+    brainstorm.md:
+      - Problem Analysis
+    test-report-unit.md:
+      - Test Results
+      - New Tests Written
+
+  # Bug fixing needs failure details, not full test metadata
+  bug-fixing:
+    test-report-unit.md:
+      - Failures
+      - Test Results
+    test-report-qa.md:
+      - Bugs Found
+      - Test Scenarios Executed
