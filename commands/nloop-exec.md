@@ -161,7 +161,7 @@ Continue with the standard `/nloop-start` orchestration loop (Step 2 onwards), s
 1. `state.trigger` is set to `"exec"` — this makes ALL nodes run autonomously (no inline/interactive nodes)
 2. `state.ticket_description` contains the full markdown file content instead of a YouTrack ticket description
 3. Brainstorm and brainstorm-refinement nodes are NOT interactive — they run as autonomous agents using the file content as input
-4. **No user interaction at any point** — the entire pipeline runs start-to-finish without pausing
+4. **ZERO user interaction** — the entire pipeline runs start-to-finish without pausing, asking questions, summarizing artifacts, or requesting confirmation. Every response must contain a tool call for the next step. NEVER output text-only responses between nodes.
 
 ### 4.4: Sequential Mode
 
