@@ -78,6 +78,16 @@ review:
 parallel:
   max_concurrent_agents: 3
 
+# ─── Rate Limit Protection ──────────────────────────────────
+# Prevents API rate limit errors when spawning many agents sequentially.
+rate_limit:
+  # Cooldown in seconds between sequential agent spawns
+  cooldown_seconds: 10
+  # Max retries when an agent fails due to rate limit
+  max_retries: 3
+  # Initial wait in seconds before first retry (doubles each retry: 30s, 60s, 120s)
+  retry_backoff_seconds: 30
+
 # ─── Git Platform ────────────────────────────────────────────
 # Supported: github | bitbucket
 # Only configure the platform you use.

@@ -295,7 +295,22 @@ Included sections: Data Models, API / Interfaces, File Changes Required, Impleme
 
 **Important**: The agent always has access to the full artifact path. If it needs a section that was windowed out, it can read the file directly using the Read tool. The summary header makes this clear.
 
-### 3.5: Spawn Agent
+### 3.5: Spawn Agent (with rate limit protection)
+
+Before spawning, apply **cooldown** and **retry with backoff** to prevent rate limit errors.
+
+#### 3.5a: Cooldown
+
+Read `rate_limit.cooldown_seconds` from `.nloop/config/nloop.yaml` (default: 10).
+
+Before EVERY agent spawn (except the very first node in the pipeline), run:
+```bash
+sleep {cooldown_seconds}
+```
+
+This paces agent spawns to avoid hitting API rate limits. The cooldown runs BEFORE the spawn, not after.
+
+#### 3.5b: Spawn with Retry
 
 Use the Claude Code Agent tool:
 ```
@@ -307,6 +322,22 @@ Agent(
   description: "{node.agent}: {node.action} for {state.ticket_id}"
 )
 ```
+
+#### 3.5c: Handle Rate Limit Errors
+
+If the Agent call fails with a rate limit error (message contains "rate limit", "Rate limit", "429", or "too many requests"):
+
+1. Read `rate_limit.max_retries` (default: 3) and `rate_limit.retry_backoff_seconds` (default: 30) from config
+2. For retry attempt `n` (1, 2, 3):
+   - Calculate wait time: `retry_backoff_seconds * (2 ^ (n - 1))` — i.e., 30s, 60s, 120s
+   - Display: `[NLoop] {TICKET_ID} — Rate limited. Retry {n}/{max_retries} in {wait}s...`
+   - Run: `sleep {wait}`
+   - Retry the Agent call with the SAME prompt, model, and mode
+3. If ALL retries fail:
+   - Log event: `{"event": "agent_rate_limited", "node": "{node}", "retries_exhausted": true}`
+   - Set condition to `failed`
+   - Resolve the next edge (which should go to `escalate`)
+   - Display: `[NLoop] {TICKET_ID} — Rate limit exhausted after {max_retries} retries. Escalating.`
 
 **CRITICAL**: Always use `mode: "auto"` when spawning agents. This ensures agents run fully autonomously without asking the user for permission on any tool call. The `mode` in agent frontmatter is ignored — the orchestrator always overrides to `"auto"` to prevent pipeline interruptions.
 
@@ -327,7 +358,9 @@ When `node.parallel == true` and `node.action == "dispatch-tasks"`:
 1. Read `.nloop/features/{TICKET_ID}/tasks.md`
 2. Identify the next group of runnable tasks (dependencies met)
 3. For each task in the group (up to `config.parallel.max_concurrent_agents`):
-   - Spawn a developer agent with `isolation: "worktree"`
+   - Apply cooldown (`sleep {cooldown_seconds}`) before each spawn
+   - Spawn a developer agent with `isolation: "worktree"` and `mode: "auto"`
+   - Apply retry with backoff (Step 3.5c) if rate limited
    - The worktree branch name follows: `{TICKET_ID}-task-{task_id}`
    - Pass only the relevant task + spec excerpt
 4. Wait for all agents in the current batch to complete
